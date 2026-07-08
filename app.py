@@ -112,8 +112,10 @@ class PDFQCApp(tk.Tk):
         }
         self._setup_style()
 
+        self.config = qc_logic.load_config()
         self.pdf_path = None
-        self.poppler_path = None  # set if OCR needs poppler
+        self.poppler_path = self.config.get("poppler_path") or None
+        self._setup_menu()
         self.drawing_text = ""
         self.page_texts = []
         self.page_words = []
@@ -243,6 +245,96 @@ class PDFQCApp(tk.Tk):
         footer.pack(fill="x", padx=16, pady=(0, 12))
         footer.columnconfigure(0, weight=1)
         ttk.Label(footer, text="© 2025 All rights reserved | Powered by Fusieengineers.Ai", style="Footer.TLabel").grid(row=0, column=0, sticky="n")
+
+    def _setup_menu(self):
+        self.menubar = tk.Menu(self)
+        self.config(menu=self.menubar)
+        
+        file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Settings", command=self.show_settings)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.quit)
+
+    def show_settings(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("Settings")
+        dialog.geometry("450x300")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # Center dialog relative to main window
+        x = self.winfo_x() + (self.winfo_width() - 450) // 2
+        y = self.winfo_y() + (self.winfo_height() - 300) // 2
+        dialog.geometry(f"+{x}+{y}")
+
+        ttk.Label(dialog, text="Application Settings", font=("Segoe UI", 12, "bold")).pack(pady=10)
+
+        form = ttk.Frame(dialog, padding=15)
+        form.pack(fill="both", expand=True)
+
+        # Tolerance
+        ttk.Label(form, text="Matching Tolerance (mm):").grid(row=0, column=0, sticky="w", pady=5)
+        tol_var = tk.DoubleVar(value=self.config.get("tolerance", 0.5))
+        tol_entry = ttk.Entry(form, textvariable=tol_var, width=10)
+        tol_entry.grid(row=0, column=1, sticky="w", pady=5, padx=10)
+
+        # Default DPI
+        ttk.Label(form, text="OCR Resolution (DPI):").grid(row=1, column=0, sticky="w", pady=5)
+        dpi_var = tk.IntVar(value=self.config.get("default_dpi", 300))
+        dpi_entry = ttk.Entry(form, textvariable=dpi_var, width=10)
+        dpi_entry.grid(row=1, column=1, sticky="w", pady=5, padx=10)
+
+        # Poppler Path
+        ttk.Label(form, text="Poppler Bin Path:").grid(row=2, column=0, sticky="w", pady=5)
+        poppler_var = tk.StringVar(value=self.config.get("poppler_path", ""))
+        poppler_entry = ttk.Entry(form, textvariable=poppler_var, width=30)
+        poppler_entry.grid(row=2, column=1, sticky="ew", pady=5, padx=10)
+        
+        def select_poppler():
+            path = filedialog.askdirectory(title="Select Poppler bin folder", parent=dialog)
+            if path:
+                poppler_var.set(path)
+        ttk.Button(form, text="Browse...", command=select_poppler, width=10).grid(row=2, column=2, pady=5)
+
+        # Tesseract Path
+        ttk.Label(form, text="Tesseract Cmd Path:").grid(row=3, column=0, sticky="w", pady=5)
+        tess_var = tk.StringVar(value=self.config.get("tesseract_path", ""))
+        tess_entry = ttk.Entry(form, textvariable=tess_var, width=30)
+        tess_entry.grid(row=3, column=1, sticky="ew", pady=5, padx=10)
+        
+        def select_tess():
+            path = filedialog.askopenfilename(
+                title="Select Tesseract Executable",
+                filetypes=[("Executables", "*.exe;*.bin"), ("All files", "*.*")],
+                parent=dialog
+            )
+            if path:
+                tess_var.set(path)
+        ttk.Button(form, text="Browse...", command=select_tess, width=10).grid(row=3, column=2, pady=5)
+
+        form.columnconfigure(1, weight=1)
+
+        # Buttons
+        buttons = ttk.Frame(dialog, padding=10)
+        buttons.pack(fill="x", side="bottom")
+
+        def save():
+            try:
+                self.config["tolerance"] = float(tol_var.get())
+                self.config["default_dpi"] = int(dpi_var.get())
+                self.config["poppler_path"] = poppler_var.get().strip()
+                self.config["tesseract_path"] = tess_var.get().strip()
+                qc_logic.save_config(self.config)
+                self.poppler_path = self.config["poppler_path"] or None
+                messagebox.showinfo("Success", "Settings saved successfully!", parent=dialog)
+                dialog.destroy()
+            except ValueError:
+                messagebox.showerror("Error", "Invalid numeric values entered.", parent=dialog)
+
+        ttk.Button(buttons, text="Save", command=save).pack(side="right", padx=5)
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="right", padx=5)
 
     def _setup_style(self):
         style = ttk.Style(self)
@@ -1237,7 +1329,7 @@ class PDFQCApp(tk.Tk):
                 continue
             fallback_page = page_idx
             candidates, candidate_bboxes = self._find_length_above_bbox(words, bbox, desc_numbers, matched_tokens)
-            best_value, selection_mode = self._pick_candidate(candidates, expected_value, prefer_max)
+            best_value, selection_mode = self._pick_candidate(candidates, expected_value, prefer_max, tolerance=self.config.get("tolerance", 0.5))
             value_bbox = candidate_bboxes.get(best_value) if best_value is not None else None
             quantity_value, quantity_label = self._extract_quantity_from_tokens(matched_tokens or [], base_tokens)
             quantity_tokens = bool(
@@ -1306,7 +1398,7 @@ class PDFQCApp(tk.Tk):
                                 value = float(match.group(1).replace(",", "").replace(" ", ""))
                                 candidates = [value]
                                 best_value, selection_mode = self._pick_candidate(
-                                    candidates, expected_value, prefer_max
+                                    candidates, expected_value, prefer_max, tolerance=self.config.get("tolerance", 0.5)
                                 )
                                 return True, best_value, page_idx, {
                                     "method": "text",
@@ -1332,7 +1424,7 @@ class PDFQCApp(tk.Tk):
                     ]
                     if numbers:
                         numbers.sort(reverse=True)
-                        best_value, selection_mode = self._pick_candidate(numbers, expected_value, prefer_max)
+                        best_value, selection_mode = self._pick_candidate(numbers, expected_value, prefer_max, tolerance=self.config.get("tolerance", 0.5))
                         return True, best_value, page_idx, {
                             "method": "text",
                             "candidates": numbers,
@@ -1390,7 +1482,7 @@ class PDFQCApp(tk.Tk):
 
     def compare_rows(self, rows, drawing_text):
         results = []
-        tolerance = 0.5
+        tolerance = self.config.get("tolerance", 0.5)
         for row_index, row in enumerate(rows):
             expected_lengths = row.get("length_options") or ([row["length"]] if row.get("length") is not None else [])
             length_required = bool(expected_lengths)
