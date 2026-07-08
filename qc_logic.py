@@ -1,6 +1,52 @@
 import re
 import sys
+import json
 from pathlib import Path
+
+DEFAULT_CONFIG = {
+    "tolerance": 0.5,
+    "default_dpi": 300,
+    "poppler_path": "",
+    "tesseract_path": ""
+}
+
+def load_config(path='config.json'):
+    try:
+        p = Path(path)
+        if p.exists():
+            with open(p, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                for k, v in DEFAULT_CONFIG.items():
+                    config.setdefault(k, v)
+                return config
+    except Exception:
+        pass
+    return DEFAULT_CONFIG.copy()
+
+def save_config(config, path='config.json'):
+    try:
+        p = Path(path)
+        with open(p, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4)
+        return True
+    except Exception:
+        return False
+
+
+def load_spellcheck_allowlist(path='spellcheck_allowlist.txt'):
+    words = set()
+    try:
+        p = Path(path)
+        if p.exists():
+            with open(p, 'r', encoding='utf-8') as f:
+                for line in f:
+                    w = line.strip().lower()
+                    if w and not w.startswith('#'):
+                        words.add(w)
+    except Exception:
+        pass
+    return words
+
 
 # --- Optional dependencies for text extraction and OCR ---
 try:
@@ -63,14 +109,17 @@ def extract_page_texts(path):
     return texts
 
 
-def ocr_pdf_to_text(path, poppler_path=None, dpi=300, pages=None):
+def ocr_pdf_to_text(path, poppler_path=None, dpi=300, pages=None, tesseract_path=None):
     """
     Convert PDF pages to images and OCR them using pytesseract.
     poppler_path: optional path to poppler binaries (Windows)
     pages: list of 1-based page numbers or None for all
+    tesseract_path: optional path to tesseract binary
     """
     if convert_from_path is None or pytesseract is None:
         return ""
+    if tesseract_path:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
     try:
         imgs = convert_from_path(
             path, dpi=dpi, poppler_path=poppler_path, first_page=1, last_page=None
@@ -541,3 +590,36 @@ def remove_table_snippets_from_pages(page_texts, snippets):
             kept.append(line)
         cleaned.append("\n".join(kept))
     return cleaned
+
+
+def export_to_csv(results):
+    import io
+    import csv
+    
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator='\n')
+    
+    # Headers
+    writer.writerow([
+        "POS", "Description", "Status", "BOM Qty", "BOM Length", 
+        "DWG Length", "Length Match", "BOM Thickness", "DWG Thickness", 
+        "Thickness Match", "Details"
+    ])
+    
+    for r in results:
+        writer.writerow([
+            r.get("pos", ""),
+            r.get("description", ""),
+            r.get("status", ""),
+            r.get("quantity_display", r.get("quantity", "") or ""),
+            r.get("length_display", r.get("length", "") or ""),
+            r.get("drawing_length", "N/A" if not r.get("length_found") else r.get("drawing_length", "")),
+            "Yes" if r.get("length_match") else "No",
+            r.get("thickness_display", r.get("thickness", "") or ""),
+            r.get("drawing_thickness", "N/A" if not r.get("thickness_found") else r.get("drawing_thickness", "")),
+            "Yes" if r.get("thickness_match") else "No",
+            r.get("details", "")
+        ])
+        
+    return output.getvalue()
+

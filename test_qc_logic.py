@@ -129,6 +129,60 @@ class TestQCLogic(unittest.TestCase):
         self.assertNotIn("2 Pin B 50 mm", cleaned[1])
         self.assertIn("This is drawing text", cleaned[0])
 
+    def test_config_load_save(self):
+        import os
+        test_config_path = "test_config.json"
+        try:
+            cfg = {"tolerance": 0.8, "default_dpi": 150}
+            self.assertTrue(qc_logic.save_config(cfg, path=test_config_path))
+            loaded = qc_logic.load_config(path=test_config_path)
+            self.assertEqual(loaded["tolerance"], 0.8)
+            self.assertEqual(loaded["default_dpi"], 150)
+            self.assertEqual(loaded["poppler_path"], "")
+        finally:
+            if os.path.exists(test_config_path):
+                os.remove(test_config_path)
+
+    def test_load_spellcheck_allowlist(self):
+        import os
+        test_file = "test_allowlist.txt"
+        try:
+            with open(test_file, "w", encoding="utf-8") as f:
+                f.write("customword1\n# commentedword\nCUSTOMWORD2\n")
+            words = qc_logic.load_spellcheck_allowlist(path=test_file)
+            self.assertIn("customword1", words)
+            self.assertIn("customword2", words)
+            self.assertNotIn("commentedword", words)
+        finally:
+            if os.path.exists(test_file):
+                os.remove(test_file)
+
+    def test_export_to_csv(self):
+        results = [
+            {
+                "pos": "1",
+                "description": "Plate Section",
+                "status": "PASS",
+                "quantity": 2.0,
+                "quantity_display": "2",
+                "length": 150.0,
+                "length_display": "150 mm",
+                "length_found": True,
+                "drawing_length": 150.0,
+                "length_match": True,
+                "thickness": 12.0,
+                "thickness_display": "12 mm",
+                "thickness_found": True,
+                "drawing_thickness": 12.0,
+                "thickness_match": True,
+                "details": "Matched on page 1"
+            }
+        ]
+        csv_str = qc_logic.export_to_csv(results)
+        self.assertIn("POS,Description,Status", csv_str)
+        self.assertIn("1,Plate Section,PASS", csv_str)
+        self.assertIn("150 mm,150.0,Yes", csv_str)
+
 
 if __name__ == "__main__":
     unittest.main()

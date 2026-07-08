@@ -112,8 +112,11 @@ class PDFQCApp(tk.Tk):
         }
         self._setup_style()
 
+        self.config = qc_logic.load_config()
         self.pdf_path = None
-        self.poppler_path = None  # set if OCR needs poppler
+        self.poppler_path = self.config.get("poppler_path") or None
+        self._setup_menu()
+        self.user_allowlist = qc_logic.load_spellcheck_allowlist()
         self.drawing_text = ""
         self.page_texts = []
         self.page_words = []
@@ -183,6 +186,11 @@ class PDFQCApp(tk.Tk):
         )
         self.upload_button.pack(side="left")
 
+        self.export_button = ttk.Button(
+            top, text="Export to CSV", style="Secondary.TButton", command=self.export_results, state="disabled"
+        )
+        self.export_button.pack(side="left", padx=(10, 0))
+
         logo_path = resource_path("download.png")
         if logo_path.exists():
             logo_image = tk.PhotoImage(file=str(logo_path))
@@ -243,6 +251,141 @@ class PDFQCApp(tk.Tk):
         footer.pack(fill="x", padx=16, pady=(0, 12))
         footer.columnconfigure(0, weight=1)
         ttk.Label(footer, text="© 2025 All rights reserved | Powered by Fusieengineers.Ai", style="Footer.TLabel").grid(row=0, column=0, sticky="n")
+
+    def _setup_menu(self):
+        self.menubar = tk.Menu(self)
+        self.config(menu=self.menubar)
+        
+        file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Settings", command=self.show_settings)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.quit)
+
+        help_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="How to Use", command=self.show_help)
+        help_menu.add_command(label="About", command=self.show_about)
+
+    def show_help(self):
+        help_text = (
+            "PDF Drawing Checker Help\n\n"
+            "1. Upload PDF and Check: Select a fabrication drawing PDF. The app extracts BOM tables and scans the drawings for verification.\n\n"
+            "2. Settings: Edit tolerance values and configure paths to optional dependencies like Poppler and Tesseract.\n\n"
+            "3. Spellcheck: View spelling issues found on the drawing text under the Spelling tab.\n\n"
+            "4. Allowlist: Add CAD/drawing abbreviations to 'spellcheck_allowlist.txt' in the app directory to ignore them during spell checks.\n\n"
+            "5. Export: Export checking results as a CSV report."
+        )
+        messagebox.showinfo("Help", help_text, parent=self)
+
+    def show_about(self):
+        about_text = (
+            "PDF Drawing Checker v1.1.0\n\n"
+            "A quality control utility for fabrication and engineering drawings.\n\n"
+            "Powered by Fusieengineers.Ai & Advanced Agentic Coding"
+        )
+        messagebox.showinfo("About", about_text, parent=self)
+
+    def show_settings(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("Settings")
+        dialog.geometry("450x300")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        # Center dialog relative to main window
+        x = self.winfo_x() + (self.winfo_width() - 450) // 2
+        y = self.winfo_y() + (self.winfo_height() - 300) // 2
+        dialog.geometry(f"+{x}+{y}")
+
+        ttk.Label(dialog, text="Application Settings", font=("Segoe UI", 12, "bold")).pack(pady=10)
+
+        form = ttk.Frame(dialog, padding=15)
+        form.pack(fill="both", expand=True)
+
+        # Tolerance
+        ttk.Label(form, text="Matching Tolerance (mm):").grid(row=0, column=0, sticky="w", pady=5)
+        tol_var = tk.DoubleVar(value=self.config.get("tolerance", 0.5))
+        tol_entry = ttk.Entry(form, textvariable=tol_var, width=10)
+        tol_entry.grid(row=0, column=1, sticky="w", pady=5, padx=10)
+
+        # Default DPI
+        ttk.Label(form, text="OCR Resolution (DPI):").grid(row=1, column=0, sticky="w", pady=5)
+        dpi_var = tk.IntVar(value=self.config.get("default_dpi", 300))
+        dpi_entry = ttk.Entry(form, textvariable=dpi_var, width=10)
+        dpi_entry.grid(row=1, column=1, sticky="w", pady=5, padx=10)
+
+        # Poppler Path
+        ttk.Label(form, text="Poppler Bin Path:").grid(row=2, column=0, sticky="w", pady=5)
+        poppler_var = tk.StringVar(value=self.config.get("poppler_path", ""))
+        poppler_entry = ttk.Entry(form, textvariable=poppler_var, width=30)
+        poppler_entry.grid(row=2, column=1, sticky="ew", pady=5, padx=10)
+        
+        def select_poppler():
+            path = filedialog.askdirectory(title="Select Poppler bin folder", parent=dialog)
+            if path:
+                poppler_var.set(path)
+        ttk.Button(form, text="Browse...", command=select_poppler, width=10).grid(row=2, column=2, pady=5)
+
+        # Tesseract Path
+        ttk.Label(form, text="Tesseract Cmd Path:").grid(row=3, column=0, sticky="w", pady=5)
+        tess_var = tk.StringVar(value=self.config.get("tesseract_path", ""))
+        tess_entry = ttk.Entry(form, textvariable=tess_var, width=30)
+        tess_entry.grid(row=3, column=1, sticky="ew", pady=5, padx=10)
+        
+        def select_tess():
+            path = filedialog.askopenfilename(
+                title="Select Tesseract Executable",
+                filetypes=[("Executables", "*.exe;*.bin"), ("All files", "*.*")],
+                parent=dialog
+            )
+            if path:
+                tess_var.set(path)
+        ttk.Button(form, text="Browse...", command=select_tess, width=10).grid(row=3, column=2, pady=5)
+
+        form.columnconfigure(1, weight=1)
+
+        # Buttons
+        buttons = ttk.Frame(dialog, padding=10)
+        buttons.pack(fill="x", side="bottom")
+
+        def save():
+            try:
+                self.config["tolerance"] = float(tol_var.get())
+                self.config["default_dpi"] = int(dpi_var.get())
+                self.config["poppler_path"] = poppler_var.get().strip()
+                self.config["tesseract_path"] = tess_var.get().strip()
+                qc_logic.save_config(self.config)
+                self.poppler_path = self.config["poppler_path"] or None
+                messagebox.showinfo("Success", "Settings saved successfully!", parent=dialog)
+                dialog.destroy()
+            except ValueError:
+                messagebox.showerror("Error", "Invalid numeric values entered.", parent=dialog)
+
+        ttk.Button(buttons, text="Save", command=save).pack(side="right", padx=5)
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="right", padx=5)
+
+    def export_results(self):
+        if not self._latest_results:
+            messagebox.showerror("Error", "No results available to export.")
+            return
+        
+        path = filedialog.asksaveasfilename(
+            title="Export Verification Report",
+            defaultextension=".csv",
+            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")]
+        )
+        if not path:
+            return
+            
+        try:
+            csv_data = qc_logic.export_to_csv(self._latest_results)
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                f.write(csv_data)
+            messagebox.showinfo("Success", f"Report successfully exported to {os.path.basename(path)}!")
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"An error occurred while exporting: {e}")
 
     def _setup_style(self):
         style = ttk.Style(self)
@@ -754,6 +897,8 @@ class PDFQCApp(tk.Tk):
 
 
     def clear_tables(self):
+        if hasattr(self, "export_button"):
+            self.export_button.configure(state="disabled")
         for tab_id in self.table_notebook.tabs():
             widget = self.table_notebook.nametowidget(tab_id)
             self.table_notebook.forget(tab_id)
@@ -1237,7 +1382,7 @@ class PDFQCApp(tk.Tk):
                 continue
             fallback_page = page_idx
             candidates, candidate_bboxes = self._find_length_above_bbox(words, bbox, desc_numbers, matched_tokens)
-            best_value, selection_mode = self._pick_candidate(candidates, expected_value, prefer_max)
+            best_value, selection_mode = self._pick_candidate(candidates, expected_value, prefer_max, tolerance=self.config.get("tolerance", 0.5))
             value_bbox = candidate_bboxes.get(best_value) if best_value is not None else None
             quantity_value, quantity_label = self._extract_quantity_from_tokens(matched_tokens or [], base_tokens)
             quantity_tokens = bool(
@@ -1306,7 +1451,7 @@ class PDFQCApp(tk.Tk):
                                 value = float(match.group(1).replace(",", "").replace(" ", ""))
                                 candidates = [value]
                                 best_value, selection_mode = self._pick_candidate(
-                                    candidates, expected_value, prefer_max
+                                    candidates, expected_value, prefer_max, tolerance=self.config.get("tolerance", 0.5)
                                 )
                                 return True, best_value, page_idx, {
                                     "method": "text",
@@ -1332,7 +1477,7 @@ class PDFQCApp(tk.Tk):
                     ]
                     if numbers:
                         numbers.sort(reverse=True)
-                        best_value, selection_mode = self._pick_candidate(numbers, expected_value, prefer_max)
+                        best_value, selection_mode = self._pick_candidate(numbers, expected_value, prefer_max, tolerance=self.config.get("tolerance", 0.5))
                         return True, best_value, page_idx, {
                             "method": "text",
                             "candidates": numbers,
@@ -1390,7 +1535,7 @@ class PDFQCApp(tk.Tk):
 
     def compare_rows(self, rows, drawing_text):
         results = []
-        tolerance = 0.5
+        tolerance = self.config.get("tolerance", 0.5)
         for row_index, row in enumerate(rows):
             expected_lengths = row.get("length_options") or ([row["length"]] if row.get("length") is not None else [])
             length_required = bool(expected_lengths)
@@ -1612,6 +1757,8 @@ class PDFQCApp(tk.Tk):
         self.clear_tables()
         if not results:
             return
+        if hasattr(self, "export_button"):
+            self.export_button.configure(state="normal")
 
         def resolve_label(row):
             label = row.get("table_label")
@@ -1849,7 +1996,7 @@ class PDFQCApp(tk.Tk):
                     continue
                 if any(char.isdigit() for char in token):
                     continue
-                if lower in SPELLCHECK_ALLOWLIST:
+                if lower in SPELLCHECK_ALLOWLIST or lower in self.user_allowlist:
                     continue
                 if lower not in filtered:
                     original_words.setdefault(lower, raw_token)
@@ -1859,7 +2006,7 @@ class PDFQCApp(tk.Tk):
             unknown = checker.unknown(filtered)
             results = {}
             for word in unknown:
-                if word in SPELLCHECK_ALLOWLIST:
+                if word in SPELLCHECK_ALLOWLIST or word in self.user_allowlist:
                     continue
                 original = original_words.get(word, word)
                 if word in results:
