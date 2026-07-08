@@ -33,6 +33,21 @@ def save_config(config, path='config.json'):
         return False
 
 
+def load_spellcheck_allowlist(path='spellcheck_allowlist.txt'):
+    words = set()
+    try:
+        p = Path(path)
+        if p.exists():
+            with open(p, 'r', encoding='utf-8') as f:
+                for line in f:
+                    w = line.strip().lower()
+                    if w and not w.startswith('#'):
+                        words.add(w)
+    except Exception:
+        pass
+    return words
+
+
 # --- Optional dependencies for text extraction and OCR ---
 try:
     import PyPDF2

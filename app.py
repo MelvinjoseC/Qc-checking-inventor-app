@@ -116,6 +116,7 @@ class PDFQCApp(tk.Tk):
         self.pdf_path = None
         self.poppler_path = self.config.get("poppler_path") or None
         self._setup_menu()
+        self.user_allowlist = qc_logic.load_spellcheck_allowlist()
         self.drawing_text = ""
         self.page_texts = []
         self.page_words = []
@@ -1941,7 +1942,7 @@ class PDFQCApp(tk.Tk):
                     continue
                 if any(char.isdigit() for char in token):
                     continue
-                if lower in SPELLCHECK_ALLOWLIST:
+                if lower in SPELLCHECK_ALLOWLIST or lower in self.user_allowlist:
                     continue
                 if lower not in filtered:
                     original_words.setdefault(lower, raw_token)
@@ -1951,7 +1952,7 @@ class PDFQCApp(tk.Tk):
             unknown = checker.unknown(filtered)
             results = {}
             for word in unknown:
-                if word in SPELLCHECK_ALLOWLIST:
+                if word in SPELLCHECK_ALLOWLIST or word in self.user_allowlist:
                     continue
                 original = original_words.get(word, word)
                 if word in results:

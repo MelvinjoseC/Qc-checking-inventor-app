@@ -1,0 +1,22 @@
+# Custom Spellcheck Allowlist
+# Add one word/abbreviation per line. Lines starting with # are ignored.
+# These words will not be flagged as spelling errors.
+
+cad
+dwg
+bom
+inventor
+pfd
+iso
+din
+ansi
+jis
+gnd
+max
+min
+nps
+dn
+pfc
+chs
+rhs
+shs
