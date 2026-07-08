@@ -186,6 +186,11 @@ class PDFQCApp(tk.Tk):
         )
         self.upload_button.pack(side="left")
 
+        self.export_button = ttk.Button(
+            top, text="Export to CSV", style="Secondary.TButton", command=self.export_results, state="disabled"
+        )
+        self.export_button.pack(side="left", padx=(10, 0))
+
         logo_path = resource_path("download.png")
         if logo_path.exists():
             logo_image = tk.PhotoImage(file=str(logo_path))
@@ -336,6 +341,27 @@ class PDFQCApp(tk.Tk):
 
         ttk.Button(buttons, text="Save", command=save).pack(side="right", padx=5)
         ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="right", padx=5)
+
+    def export_results(self):
+        if not self._latest_results:
+            messagebox.showerror("Error", "No results available to export.")
+            return
+        
+        path = filedialog.asksaveasfilename(
+            title="Export Verification Report",
+            defaultextension=".csv",
+            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")]
+        )
+        if not path:
+            return
+            
+        try:
+            csv_data = qc_logic.export_to_csv(self._latest_results)
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                f.write(csv_data)
+            messagebox.showinfo("Success", f"Report successfully exported to {os.path.basename(path)}!")
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"An error occurred while exporting: {e}")
 
     def _setup_style(self):
         style = ttk.Style(self)
@@ -847,6 +873,8 @@ class PDFQCApp(tk.Tk):
 
 
     def clear_tables(self):
+        if hasattr(self, "export_button"):
+            self.export_button.configure(state="disabled")
         for tab_id in self.table_notebook.tabs():
             widget = self.table_notebook.nametowidget(tab_id)
             self.table_notebook.forget(tab_id)
@@ -1705,6 +1733,8 @@ class PDFQCApp(tk.Tk):
         self.clear_tables()
         if not results:
             return
+        if hasattr(self, "export_button"):
+            self.export_button.configure(state="normal")
 
         def resolve_label(row):
             label = row.get("table_label")
