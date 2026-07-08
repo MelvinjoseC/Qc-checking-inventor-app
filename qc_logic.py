@@ -590,3 +590,36 @@ def remove_table_snippets_from_pages(page_texts, snippets):
             kept.append(line)
         cleaned.append("\n".join(kept))
     return cleaned
+
+
+def export_to_csv(results):
+    import io
+    import csv
+    
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator='\n')
+    
+    # Headers
+    writer.writerow([
+        "POS", "Description", "Status", "BOM Qty", "BOM Length", 
+        "DWG Length", "Length Match", "BOM Thickness", "DWG Thickness", 
+        "Thickness Match", "Details"
+    ])
+    
+    for r in results:
+        writer.writerow([
+            r.get("pos", ""),
+            r.get("description", ""),
+            r.get("status", ""),
+            r.get("quantity_display", r.get("quantity", "") or ""),
+            r.get("length_display", r.get("length", "") or ""),
+            r.get("drawing_length", "N/A" if not r.get("length_found") else r.get("drawing_length", "")),
+            "Yes" if r.get("length_match") else "No",
+            r.get("thickness_display", r.get("thickness", "") or ""),
+            r.get("drawing_thickness", "N/A" if not r.get("thickness_found") else r.get("drawing_thickness", "")),
+            "Yes" if r.get("thickness_match") else "No",
+            r.get("details", "")
+        ])
+        
+    return output.getvalue()
+
