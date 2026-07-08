@@ -262,6 +262,30 @@ class PDFQCApp(tk.Tk):
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
 
+        help_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="How to Use", command=self.show_help)
+        help_menu.add_command(label="About", command=self.show_about)
+
+    def show_help(self):
+        help_text = (
+            "PDF Drawing Checker Help\n\n"
+            "1. Upload PDF and Check: Select a fabrication drawing PDF. The app extracts BOM tables and scans the drawings for verification.\n\n"
+            "2. Settings: Edit tolerance values and configure paths to optional dependencies like Poppler and Tesseract.\n\n"
+            "3. Spellcheck: View spelling issues found on the drawing text under the Spelling tab.\n\n"
+            "4. Allowlist: Add CAD/drawing abbreviations to 'spellcheck_allowlist.txt' in the app directory to ignore them during spell checks.\n\n"
+            "5. Export: Export checking results as a CSV report."
+        )
+        messagebox.showinfo("Help", help_text, parent=self)
+
+    def show_about(self):
+        about_text = (
+            "PDF Drawing Checker v1.1.0\n\n"
+            "A quality control utility for fabrication and engineering drawings.\n\n"
+            "Powered by Fusieengineers.Ai & Advanced Agentic Coding"
+        )
+        messagebox.showinfo("About", about_text, parent=self)
+
     def show_settings(self):
         dialog = tk.Toplevel(self)
         dialog.title("Settings")
