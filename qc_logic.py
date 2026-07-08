@@ -1,6 +1,37 @@
 import re
 import sys
+import json
 from pathlib import Path
+
+DEFAULT_CONFIG = {
+    "tolerance": 0.5,
+    "default_dpi": 300,
+    "poppler_path": "",
+    "tesseract_path": ""
+}
+
+def load_config(path='config.json'):
+    try:
+        p = Path(path)
+        if p.exists():
+            with open(p, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                for k, v in DEFAULT_CONFIG.items():
+                    config.setdefault(k, v)
+                return config
+    except Exception:
+        pass
+    return DEFAULT_CONFIG.copy()
+
+def save_config(config, path='config.json'):
+    try:
+        p = Path(path)
+        with open(p, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4)
+        return True
+    except Exception:
+        return False
+
 
 # --- Optional dependencies for text extraction and OCR ---
 try:
@@ -63,14 +94,17 @@ def extract_page_texts(path):
     return texts
 
 
-def ocr_pdf_to_text(path, poppler_path=None, dpi=300, pages=None):
+def ocr_pdf_to_text(path, poppler_path=None, dpi=300, pages=None, tesseract_path=None):
     """
     Convert PDF pages to images and OCR them using pytesseract.
     poppler_path: optional path to poppler binaries (Windows)
     pages: list of 1-based page numbers or None for all
+    tesseract_path: optional path to tesseract binary
     """
     if convert_from_path is None or pytesseract is None:
         return ""
+    if tesseract_path:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_path
     try:
         imgs = convert_from_path(
             path, dpi=dpi, poppler_path=poppler_path, first_page=1, last_page=None
