@@ -462,6 +462,37 @@ def _parse_row_thickness(cells, thickness_idx):
     return thickness_value, thickness_display
 
 
+def _parse_row_quantity(cells, quantity_idx):
+    if quantity_idx is None or quantity_idx >= len(cells):
+        return None, None
+    quantity_raw = (cells[quantity_idx] or "").strip()
+    if not quantity_raw:
+        return None, None
+    quantity_display = quantity_raw
+    quantity_value = None
+    qty_numbers = re.findall(
+        r"[-+]?\d+(?:\.\d+)?", quantity_raw.replace(",", "")
+    )
+    if qty_numbers:
+        try:
+            quantity_value = float(qty_numbers[0])
+        except ValueError:
+            quantity_value = None
+    return quantity_value, quantity_display
+
+
+def _generate_row_key(pos_value, description, length_options, measure_type, thickness_value, quantity_value, quantity_text):
+    length_key = tuple(round(v, 6) for v in length_options)
+    thickness_key = round(thickness_value, 6) if thickness_value is not None else None
+    if quantity_value is not None:
+        quantity_key = round(quantity_value, 6)
+    elif quantity_text:
+        quantity_key = quantity_text.strip().lower()
+    else:
+        quantity_key = None
+    return (pos_value, description, length_key, measure_type, thickness_key, quantity_key)
+
+
 def extract_rows_with_plumber(path):
     if pdfplumber is None:
         return [], [], []
