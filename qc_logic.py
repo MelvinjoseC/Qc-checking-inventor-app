@@ -119,7 +119,7 @@ except Exception:
     pdfplumber = None
 
 
-def extract_text_from_pdf(path):
+def extract_text_from_pdf(path: Union[str, Path]) -> str:
     """Try to extract text with PyPDF2. Returns combined text of all pages (may be empty)."""
     p = Path(path)
     if not p.exists():
@@ -144,7 +144,7 @@ def extract_text_from_pdf(path):
     return text
 
 
-def extract_page_texts(path):
+def extract_page_texts(path: Union[str, Path]) -> List[str]:
     p = Path(path)
     if not p.exists():
         raise PDFQCError(f"PDF file does not exist: {path}")
@@ -178,7 +178,13 @@ def extract_page_texts(path):
     return texts
 
 
-def ocr_pdf_to_text(path, poppler_path=None, dpi=300, pages=None, tesseract_path=None):
+def ocr_pdf_to_text(
+    path: Union[str, Path],
+    poppler_path: Optional[Union[str, Path]] = None,
+    dpi: int = 300,
+    pages: Optional[List[int]] = None,
+    tesseract_path: Optional[Union[str, Path]] = None
+) -> str:
     """
     Convert PDF pages to images and OCR them using pytesseract.
     poppler_path: optional path to poppler binaries (Windows)
@@ -216,7 +222,7 @@ def ocr_pdf_to_text(path, poppler_path=None, dpi=300, pages=None, tesseract_path
     return text
 
 
-def parse_table_row(line):
+def parse_table_row(line: str) -> Optional[Dict[str, Any]]:
     tokens = line.strip().split()
     if len(tokens) < 4:
         return None
@@ -262,7 +268,7 @@ def parse_table_row(line):
     }
 
 
-def normalize_word_token(text):
+def normalize_word_token(text: str) -> str:
     return re.sub(r"[^a-z0-9.+-]", "", text.lower())
 
 
