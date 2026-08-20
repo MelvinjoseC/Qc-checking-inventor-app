@@ -152,19 +152,27 @@ def extract_page_texts(path):
         try:
             with open(path, "rb") as f:
                 reader = PyPDF2.PdfReader(f)
-                for page in reader.pages:
+                for i, page in enumerate(reader.pages):
                     try:
                         t = page.extract_text() or ""
-                    except Exception:
+                    except Exception as page_err:
+                        logger.warning("Failed to extract text from page %d using PyPDF2: %s", i + 1, page_err)
                         t = ""
                     texts.append(t)
-        except Exception:
+        except Exception as e:
+            logger.error("Failed to extract page texts using PyPDF2: %s", e)
             texts = []
     if not texts and pdfplumber is not None:
         try:
             with pdfplumber.open(path) as pdf:
-                texts = [(page.extract_text() or "") for page in pdf.pages]
-        except Exception:
+                for i, page in enumerate(pdf.pages):
+                    try:
+                        texts.append(page.extract_text() or "")
+                    except Exception as page_err:
+                        logger.warning("Failed to extract text from page %d using pdfplumber: %s", i + 1, page_err)
+                        texts.append("")
+        except Exception as e:
+            logger.error("Failed to extract page texts using pdfplumber: %s", e)
             texts = []
     return texts
 
