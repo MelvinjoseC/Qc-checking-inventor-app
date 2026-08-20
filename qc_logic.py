@@ -697,34 +697,61 @@ def remove_table_snippets_from_pages(page_texts, snippets):
     return cleaned
 
 
-def export_to_csv(results):
+def export_to_csv(results, columns=None):
     import io
     import csv
     
     output = io.StringIO()
     writer = csv.writer(output, lineterminator='\n')
     
-    # Headers
-    writer.writerow([
-        "POS", "Description", "Status", "BOM Qty", "BOM Length", 
-        "DWG Length", "Length Match", "BOM Thickness", "DWG Thickness", 
-        "Thickness Match", "Details"
-    ])
+    default_headers = {
+        "pos": "POS",
+        "description": "Description",
+        "status": "Status",
+        "quantity": "BOM Qty",
+        "length_bom": "BOM Length",
+        "length_dwg": "DWG Length",
+        "length_match": "Length Match",
+        "thickness_bom": "BOM Thickness",
+        "thickness_dwg": "DWG Thickness",
+        "thickness_match": "Thickness Match",
+        "details": "Details",
+    }
+    
+    if columns is None:
+        columns = list(default_headers.keys())
+        
+    headers = [default_headers.get(col, col.capitalize()) for col in columns]
+    writer.writerow(headers)
     
     for r in results:
-        writer.writerow([
-            r.get("pos", ""),
-            r.get("description", ""),
-            r.get("status", ""),
-            r.get("quantity_display", r.get("quantity", "") or ""),
-            r.get("length_display", r.get("length", "") or ""),
-            r.get("drawing_length", "N/A" if not r.get("length_found") else r.get("drawing_length", "")),
-            "Yes" if r.get("length_match") else "No",
-            r.get("thickness_display", r.get("thickness", "") or ""),
-            r.get("drawing_thickness", "N/A" if not r.get("thickness_found") else r.get("drawing_thickness", "")),
-            "Yes" if r.get("thickness_match") else "No",
-            r.get("details", "")
-        ])
+        row_data = []
+        for col in columns:
+            if col == "pos":
+                row_data.append(r.get("pos", ""))
+            elif col == "description":
+                row_data.append(r.get("description", ""))
+            elif col == "status":
+                row_data.append(r.get("status", ""))
+            elif col == "quantity":
+                row_data.append(r.get("quantity_display", r.get("quantity", "") or ""))
+            elif col == "length_bom":
+                row_data.append(r.get("length_display", r.get("length", "") or ""))
+            elif col == "length_dwg":
+                row_data.append("N/A" if not r.get("length_found") else r.get("drawing_length", ""))
+            elif col == "length_match":
+                row_data.append("Yes" if r.get("length_match") else "No")
+            elif col == "thickness_bom":
+                row_data.append(r.get("thickness_display", r.get("thickness", "") or ""))
+            elif col == "thickness_dwg":
+                row_data.append("N/A" if not r.get("thickness_found") else r.get("drawing_thickness", ""))
+            elif col == "thickness_match":
+                row_data.append("Yes" if r.get("thickness_match") else "No")
+            elif col == "details":
+                row_data.append(r.get("details", ""))
+            else:
+                row_data.append(r.get(col, ""))
+        writer.writerow(row_data)
         
     return output.getvalue()
 
