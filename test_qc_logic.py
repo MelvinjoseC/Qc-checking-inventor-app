@@ -243,6 +243,19 @@ class TestQCLogic(unittest.TestCase):
         self.assertIn("1,Plate Section,PASS", csv_str)
         self.assertIn("150 mm,150.0,Yes", csv_str)
 
+    def test_export_to_csv_custom_columns(self):
+        results = [
+            {
+                "pos": "1",
+                "description": "Plate Section",
+                "status": "PASS"
+            }
+        ]
+        csv_str = qc_logic.export_to_csv(results, columns=["pos", "status"])
+        self.assertIn("POS,Status", csv_str)
+        self.assertNotIn("Description", csv_str)
+        self.assertIn("1,PASS", csv_str)
+
 
 if __name__ == "__main__":
     unittest.main()
