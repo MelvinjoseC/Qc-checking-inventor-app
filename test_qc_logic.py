@@ -129,6 +129,31 @@ class TestQCLogic(unittest.TestCase):
         self.assertNotIn("2 Pin B 50 mm", cleaned[1])
         self.assertIn("This is drawing text", cleaned[0])
 
+    def test_validate_config(self):
+        # Test with valid config
+        valid = {
+            "tolerance": 0.8,
+            "default_dpi": 150,
+            "poppler_path": "/usr/bin/poppler",
+            "tesseract_path": "/usr/bin/tesseract"
+        }
+        res = qc_logic.validate_config(valid)
+        self.assertEqual(res["tolerance"], 0.8)
+        self.assertEqual(res["default_dpi"], 150)
+        self.assertEqual(res["poppler_path"], "/usr/bin/poppler")
+        self.assertEqual(res["tesseract_path"], "/usr/bin/tesseract")
+
+        # Test with invalid formats
+        invalid = {
+            "tolerance": "abc",
+            "default_dpi": "not-an-int",
+            "poppler_path": 123
+        }
+        res2 = qc_logic.validate_config(invalid)
+        self.assertEqual(res2["tolerance"], 0.5)  # default fallback
+        self.assertEqual(res2["default_dpi"], 300) # default fallback
+        self.assertEqual(res2["poppler_path"], "123") # converted to string
+
     def test_config_load_save(self):
         import os
         test_config_path = "test_config.json"
