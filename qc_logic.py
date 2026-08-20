@@ -586,17 +586,9 @@ def extract_rows_with_plumber(path):
                         if not re.fullmatch(r"\d+(?:\.\d+)?", pos_value_raw.replace(" ", "")):
                             continue
                         # description
-                        desc_parts = []
-                        for idx in range(desc_idx, measure_idx):
-                            if idx == desc_idx:
-                                desc_parts.append((cells[idx] or "").strip())
-                            else:
-                                part = (cells[idx] or "").strip()
-                                if part:
-                                    desc_parts.append(part)
-                        if not desc_parts:
+                        description = _parse_row_description(cells, desc_idx, measure_idx)
+                        if not description:
                             continue
-                        description = " ".join(desc_parts)
                         # measurement
                         measure_token_raw = (cells[measure_idx] or "").strip()
                         if not measure_token_raw:
@@ -631,46 +623,15 @@ def extract_rows_with_plumber(path):
                             continue
                         if not length_options:
                             length_options = [length_value]
-                        quantity_display = None
-                        quantity_value = None
-                        quantity_text = None
-                        if quantity_idx is not None and quantity_idx < len(cells):
-                            quantity_raw = (cells[quantity_idx] or "").strip()
-                            if quantity_raw:
-                                quantity_text = quantity_raw
-                                quantity_display = quantity_raw
-                                qty_numbers = re.findall(
-                                    r"[-+]?\d+(?:\.\d+)?", quantity_raw.replace(",", "")
-                                )
-                                if qty_numbers:
-                                    try:
-                                        quantity_value = float(qty_numbers[0])
-                                    except ValueError:
-                                        quantity_value = None
+                        # quantity
+                        quantity_value, quantity_display = _parse_row_quantity(cells, quantity_idx)
+                        quantity_text = quantity_display
+                        # thickness
+                        thickness_value, thickness_display = _parse_row_thickness(cells, thickness_idx)
                         pos_value = pos_value_raw.replace(" ", "")
-                        length_key = tuple(round(v, 6) for v in length_options)
-                        thickness_display = None
-                        thickness_value = None
-                        if thickness_idx is not None and thickness_idx < len(cells):
-                            thickness_token_raw = (cells[thickness_idx] or "").strip()
-                            if thickness_token_raw:
-                                thickness_display = thickness_token_raw
-                                thickness_numbers = re.findall(
-                                    r"[-+]?\d+(?:\.\d+)?", thickness_token_raw.replace(",", "")
-                                )
-                                if thickness_numbers:
-                                    try:
-                                        thickness_value = abs(float(thickness_numbers[0]))
-                                    except ValueError:
-                                        thickness_value = None
-                        thickness_key = round(thickness_value, 6) if thickness_value is not None else None
-                        if quantity_value is not None:
-                            quantity_key = round(quantity_value, 6)
-                        elif quantity_text:
-                            quantity_key = quantity_text.strip().lower()
-                        else:
-                            quantity_key = None
-                        key = (pos_value, description, length_key, measure_type, thickness_key, quantity_key)
+                        key = _generate_row_key(
+                            pos_value, description, length_options, measure_type, thickness_value, quantity_value, quantity_text
+                        )
                         if key in seen:
                             continue
                         seen.add(key)
