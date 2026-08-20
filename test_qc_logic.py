@@ -137,6 +137,33 @@ class TestQCLogic(unittest.TestCase):
         with self.assertRaises(qc_logic.PDFQCError):
             qc_logic.extract_page_texts("non_existent_file.pdf")
 
+    def test_plumber_row_parsing_helpers(self):
+        cells = ["10", "Plate A", "Extra Info", "1500 mm", "12 mm", "2"]
+        desc = qc_logic._parse_row_description(cells, 1, 3)
+        self.assertEqual(desc, "Plate A Extra Info")
+
+        thk_val, thk_disp = qc_logic._parse_row_thickness(cells, 4)
+        self.assertEqual(thk_val, 12.0)
+        self.assertEqual(thk_disp, "12 mm")
+
+        qty_val, qty_disp = qc_logic._parse_row_quantity(cells, 5)
+        self.assertEqual(qty_val, 2.0)
+        self.assertEqual(qty_disp, "2")
+
+        key = qc_logic._generate_row_key("10", "Plate A Extra Info", [1500.0], "length", 12.0, 2.0, "2")
+        self.assertEqual(key, ("10", "Plate A Extra Info", (1500.0,), "length", 12.0, 2.0))
+
+        # Test index detection helpers
+        header = ["POS", "DESCRIPTION", "LENGTH", "QTY"]
+        self.assertEqual(qc_logic._find_header_index(header, ["POS"]), 0)
+        self.assertEqual(qc_logic._find_header_index(header, ["DESCRIPTION"]), 1)
+        self.assertEqual(qc_logic._find_header_index(header, ["LENGTH"]), 2)
+        self.assertEqual(qc_logic._find_header_index(header, ["QTY"]), 3)
+
+        measure_idx, measure_type = qc_logic._find_measurement_index(header)
+        self.assertEqual(measure_idx, 2)
+        self.assertEqual(measure_type, "length")
+
     def test_validate_config(self):
         # Test with valid config
         valid = {
