@@ -187,7 +187,14 @@ def ocr_pdf_to_text(path, poppler_path=None, dpi=300, pages=None, tesseract_path
     if convert_from_path is None or pytesseract is None:
         raise OCRNotFoundError("pdf2image or pytesseract is not installed")
     if tesseract_path:
-        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+        tess_p = Path(tesseract_path)
+        if not tess_p.exists():
+            raise OCRNotFoundError(f"Tesseract path does not exist: {tesseract_path}")
+        pytesseract.pytesseract.tesseract_cmd = str(tess_p)
+    if poppler_path:
+        pop_p = Path(poppler_path)
+        if not pop_p.exists():
+            raise OCRNotFoundError(f"Poppler path does not exist: {poppler_path}")
     try:
         imgs = convert_from_path(
             path, dpi=dpi, poppler_path=poppler_path, first_page=1, last_page=None
