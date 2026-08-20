@@ -3,6 +3,7 @@ import sys
 import json
 import logging
 from pathlib import Path
+from typing import Dict, List, Tuple, Optional, Set, Any, Union
 
 logger = logging.getLogger("qc_logic")
 
@@ -29,7 +30,7 @@ DEFAULT_CONFIG = {
     "tesseract_path": ""
 }
 
-def validate_config(config):
+def validate_config(config: Any) -> Dict[str, Any]:
     """
     Validate config dict structure and values, falling back to defaults if invalid.
     """
@@ -62,7 +63,7 @@ def validate_config(config):
     return validated
 
 
-def load_config(path='config.json'):
+def load_config(path: Union[str, Path] = 'config.json') -> Dict[str, Any]:
     try:
         p = Path(path)
         if p.exists():
@@ -73,7 +74,7 @@ def load_config(path='config.json'):
         logger.warning("Failed to load config, using defaults: %s", e)
     return DEFAULT_CONFIG.copy()
 
-def save_config(config, path='config.json'):
+def save_config(config: Dict[str, Any], path: Union[str, Path] = 'config.json') -> bool:
     try:
         p = Path(path)
         with open(p, 'w', encoding='utf-8') as f:
@@ -84,7 +85,7 @@ def save_config(config, path='config.json'):
         return False
 
 
-def load_spellcheck_allowlist(path='spellcheck_allowlist.txt'):
+def load_spellcheck_allowlist(path: Union[str, Path] = 'spellcheck_allowlist.txt') -> Set[str]:
     words = set()
     try:
         p = Path(path)
