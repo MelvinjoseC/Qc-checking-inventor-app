@@ -120,8 +120,12 @@ except Exception:
 
 def extract_text_from_pdf(path):
     """Try to extract text with PyPDF2. Returns combined text of all pages (may be empty)."""
+    p = Path(path)
+    if not p.exists():
+        raise PDFQCError(f"PDF file does not exist: {path}")
     text = ""
     if PyPDF2 is None:
+        logger.warning("PyPDF2 is not installed, direct extraction unavailable")
         return text
     try:
         with open(path, "rb") as f:
@@ -129,15 +133,20 @@ def extract_text_from_pdf(path):
             for p in reader.pages:
                 try:
                     t = p.extract_text() or ""
-                except Exception:
+                except Exception as e:
+                    logger.warning("Failed to extract text from a page: %s", e)
                     t = ""
                 text += t + "\n"
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to read PDF with PyPDF2: %s", e)
         text = ""
     return text
 
 
 def extract_page_texts(path):
+    p = Path(path)
+    if not p.exists():
+        raise PDFQCError(f"PDF file does not exist: {path}")
     texts = []
     if PyPDF2 is not None:
         try:
@@ -168,7 +177,7 @@ def ocr_pdf_to_text(path, poppler_path=None, dpi=300, pages=None, tesseract_path
     tesseract_path: optional path to tesseract binary
     """
     if convert_from_path is None or pytesseract is None:
-        return ""
+        raise OCRNotFoundError("pdf2image or pytesseract is not installed")
     if tesseract_path:
         pytesseract.pytesseract.tesseract_cmd = tesseract_path
     try:

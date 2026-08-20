@@ -33,6 +33,8 @@ from qc_logic import (
     ocr_pdf_to_text,
     extract_rows_with_plumber,
     remove_table_snippets_from_pages,
+    PDFQCError,
+    OCRNotFoundError,
 )
 
 # --- Optional dependencies for text extraction and OCR ---
@@ -732,7 +734,11 @@ class PDFQCApp(tk.Tk):
                 self.poppler_path = selected
             else:
                 return "", None
-        ocr_text = ocr_pdf_to_text(path, poppler_path=poppler)
+        try:
+            ocr_text = ocr_pdf_to_text(path, poppler_path=poppler)
+        except OCRNotFoundError as e:
+            logging.getLogger("app").error("OCR processing error: %s", e)
+            ocr_text = ""
         return (ocr_text, "OCR") if ocr_text and ocr_text.strip() else ("", None)
 
     def extract_table_rows(self, text):
