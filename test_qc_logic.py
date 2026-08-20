@@ -256,6 +256,19 @@ class TestQCLogic(unittest.TestCase):
         self.assertNotIn("Description", csv_str)
         self.assertIn("1,PASS", csv_str)
 
+    def test_export_to_json(self):
+        results = [
+            {
+                "pos": "1",
+                "description": "Plate Section",
+                "status": "PASS"
+            }
+        ]
+        json_str = qc_logic.export_to_json(results)
+        self.assertIn('"pos": "1"', json_str)
+        self.assertIn('"description": "Plate Section"', json_str)
+        self.assertIn('"status": "PASS"', json_str)
+
 
 if __name__ == "__main__":
     unittest.main()
