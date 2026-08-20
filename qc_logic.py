@@ -10,15 +10,46 @@ DEFAULT_CONFIG = {
     "tesseract_path": ""
 }
 
+def validate_config(config):
+    """
+    Validate config dict structure and values, falling back to defaults if invalid.
+    """
+    if not isinstance(config, dict):
+        return DEFAULT_CONFIG.copy()
+    
+    validated = DEFAULT_CONFIG.copy()
+    if "tolerance" in config:
+        try:
+            tolerance = float(config["tolerance"])
+            if tolerance >= 0:
+                validated["tolerance"] = tolerance
+        except (ValueError, TypeError):
+            pass
+            
+    if "default_dpi" in config:
+        try:
+            dpi = int(config["default_dpi"])
+            if dpi > 0:
+                validated["default_dpi"] = dpi
+        except (ValueError, TypeError):
+            pass
+            
+    if "poppler_path" in config:
+        validated["poppler_path"] = str(config["poppler_path"])
+        
+    if "tesseract_path" in config:
+        validated["tesseract_path"] = str(config["tesseract_path"])
+        
+    return validated
+
+
 def load_config(path='config.json'):
     try:
         p = Path(path)
         if p.exists():
             with open(p, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-                for k, v in DEFAULT_CONFIG.items():
-                    config.setdefault(k, v)
-                return config
+                return validate_config(config)
     except Exception:
         pass
     return DEFAULT_CONFIG.copy()
