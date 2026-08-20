@@ -17,6 +17,7 @@ System requirements for OCR fallback:
 """
 
 import os
+import logging
 import re
 import sys
 import copy
@@ -2381,6 +2382,15 @@ class PDFQCApp(tk.Tk):
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    logger = logging.getLogger("app")
+    logger.info("Starting PDF Drawing Checker application")
     app = PDFQCApp()
     app.mainloop()
 
