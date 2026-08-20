@@ -704,7 +704,7 @@ def remove_table_snippets_from_pages(page_texts, snippets):
     return cleaned
 
 
-def export_to_csv(results, columns=None):
+def export_to_csv(results: List[Dict[str, Any]], columns: Optional[List[str]] = None) -> str:
     import io
     import csv
     
@@ -763,7 +763,7 @@ def export_to_csv(results, columns=None):
     return output.getvalue()
 
 
-def export_to_json(results):
+def export_to_json(results: List[Dict[str, Any]]) -> str:
     import json
     return json.dumps(results, indent=4)
 
