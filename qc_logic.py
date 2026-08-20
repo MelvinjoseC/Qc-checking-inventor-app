@@ -755,3 +755,8 @@ def export_to_csv(results, columns=None):
         
     return output.getvalue()
 
+
+def export_to_json(results):
+    import json
+    return json.dumps(results, indent=4)
+
