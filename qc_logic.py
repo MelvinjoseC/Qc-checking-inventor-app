@@ -390,6 +390,45 @@ def format_length(value):
     return f"{text} mm"
 
 
+SECTION_KEYWORDS = ["PROFILES", "PROFILE", "PLATES", "PLATE", "PINS", "PIN"]
+MEASUREMENT_PRIORITY = [
+    (("LENGTH", "LENGTH (MM)", "LENGTHMM"), "length"),
+    (("SIZE", "DIMENSION", "DIMENSIONS"), "size"),
+]
+QUANTITY_KEYWORDS = ("ITEM QTY", "ITEMQTY", "ITEM_QTY", "QTY", "QUANTITY", "Q'TY")
+
+
+def _normalize_header_token(cell):
+    upper = (cell or "").upper()
+    compact = re.sub(r"[^A-Z0-9]+", "", upper)
+    return upper, compact
+
+
+def _header_matches(cell, keywords):
+    upper, compact = _normalize_header_token(cell)
+    for key in keywords:
+        key_upper = key.upper()
+        key_compact = re.sub(r"[^A-Z0-9]+", "", key_upper)
+        if key_upper in upper or key_compact in compact:
+            return True
+    return False
+
+
+def _find_header_index(header_row, keywords):
+    for idx, cell in enumerate(header_row):
+        if _header_matches(cell, keywords):
+            return idx
+    return None
+
+
+def _find_measurement_index(header_row):
+    for keywords, measure_type in MEASUREMENT_PRIORITY:
+        idx = _find_header_index(header_row, keywords)
+        if idx is not None:
+            return idx, measure_type
+    return None, None
+
+
 def extract_rows_with_plumber(path):
     if pdfplumber is None:
         return [], [], []
@@ -397,42 +436,7 @@ def extract_rows_with_plumber(path):
     snippets = []
     words_by_page = []
     seen = set()
-    section_keywords = ["PROFILES", "PROFILE", "PLATES", "PLATE", "PINS", "PIN"]
     table_counter = 0
-
-    def _normalize_header_token(cell):
-        upper = (cell or "").upper()
-        compact = re.sub(r"[^A-Z0-9]+", "", upper)
-        return upper, compact
-
-    def _header_matches(cell, keywords):
-        upper, compact = _normalize_header_token(cell)
-        for key in keywords:
-            key_upper = key.upper()
-            key_compact = re.sub(r"[^A-Z0-9]+", "", key_upper)
-            if key_upper in upper or key_compact in compact:
-                return True
-        return False
-
-    def _find_header_index(header_row, keywords):
-        for idx, cell in enumerate(header_row):
-            if _header_matches(cell, keywords):
-                return idx
-        return None
-
-    measurement_priority = [
-        (("LENGTH", "LENGTH (MM)", "LENGTHMM"), "length"),
-        (("SIZE", "DIMENSION", "DIMENSIONS"), "size"),
-    ]
-
-    quantity_keywords = ("ITEM QTY", "ITEMQTY", "ITEM_QTY", "QTY", "QUANTITY", "Q'TY")
-
-    def _find_measurement_index(header_row):
-        for keywords, measure_type in measurement_priority:
-            idx = _find_header_index(header_row, keywords)
-            if idx is not None:
-                return idx, measure_type
-        return None, None
 
     try:
         with pdfplumber.open(path) as pdf:
@@ -442,7 +446,7 @@ def extract_rows_with_plumber(path):
                 ) or []
                 words_by_page.append(page_words)
                 page_text_upper = (page.extract_text() or "").upper()
-                has_section_word = any(word in page_text_upper for word in section_keywords)
+                has_section_word = any(word in page_text_upper for word in SECTION_KEYWORDS)
                 tables = page.extract_tables()
                 if not tables:
                     continue
@@ -459,7 +463,7 @@ def extract_rows_with_plumber(path):
                         continue
                     normalized = [[(cell or "").strip() for cell in row] for row in table]
                     is_target_table = any(
-                        _header_matches(cell, section_keywords)
+                        _header_matches(cell, SECTION_KEYWORDS)
                         for row in normalized[:2]
                         for cell in row
                     )
@@ -486,7 +490,7 @@ def extract_rows_with_plumber(path):
                             measure_idx = candidate_measure_idx
                             measure_type = candidate_measure_type
                             thickness_idx = _find_header_index(candidate, ("THICKNESS", "THK", "THICK"))
-                            quantity_idx = _find_header_index(candidate, quantity_keywords)
+                            quantity_idx = _find_header_index(candidate, QUANTITY_KEYWORDS)
                             break
                     if header_row is None:
                         continue
