@@ -1,7 +1,10 @@
 import re
 import sys
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger("qc_logic")
 
 DEFAULT_CONFIG = {
     "tolerance": 0.5,
@@ -50,8 +53,8 @@ def load_config(path='config.json'):
             with open(p, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 return validate_config(config)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to load config, using defaults: %s", e)
     return DEFAULT_CONFIG.copy()
 
 def save_config(config, path='config.json'):
@@ -60,7 +63,8 @@ def save_config(config, path='config.json'):
         with open(p, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4)
         return True
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to save config to %s: %s", path, e)
         return False
 
 
@@ -74,8 +78,8 @@ def load_spellcheck_allowlist(path='spellcheck_allowlist.txt'):
                     w = line.strip().lower()
                     if w and not w.startswith('#'):
                         words.add(w)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to load spellcheck allowlist from %s: %s", path, e)
     return words
 
 
@@ -158,13 +162,14 @@ def ocr_pdf_to_text(path, poppler_path=None, dpi=300, pages=None, tesseract_path
         if pages:
             imgs = [imgs[i - 1] for i in pages if 1 <= i <= len(imgs)]
     except Exception as e:
-        print("pdf2image conversion failed:", e)
+        logger.error("pdf2image conversion failed: %s", e)
         return ""
     text = ""
     for img in imgs:
         try:
             t = pytesseract.image_to_string(img)
-        except Exception:
+        except Exception as e:
+            logger.error("pytesseract OCR failed for image: %s", e)
             t = ""
         text += t + "\n"
     return text
