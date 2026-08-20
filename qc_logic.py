@@ -429,6 +429,39 @@ def _find_measurement_index(header_row):
     return None, None
 
 
+def _parse_row_description(cells, desc_idx, measure_idx):
+    desc_parts = []
+    for idx in range(desc_idx, measure_idx):
+        if idx == desc_idx:
+            desc_parts.append((cells[idx] or "").strip())
+        else:
+            part = (cells[idx] or "").strip()
+            if part:
+                desc_parts.append(part)
+    if not desc_parts:
+        return None
+    return " ".join(desc_parts)
+
+
+def _parse_row_thickness(cells, thickness_idx):
+    if thickness_idx is None or thickness_idx >= len(cells):
+        return None, None
+    thickness_token_raw = (cells[thickness_idx] or "").strip()
+    if not thickness_token_raw:
+        return None, None
+    thickness_display = thickness_token_raw
+    thickness_value = None
+    thickness_numbers = re.findall(
+        r"[-+]?\d+(?:\.\d+)?", thickness_token_raw.replace(",", "")
+    )
+    if thickness_numbers:
+        try:
+            thickness_value = abs(float(thickness_numbers[0]))
+        except ValueError:
+            thickness_value = None
+    return thickness_value, thickness_display
+
+
 def extract_rows_with_plumber(path):
     if pdfplumber is None:
         return [], [], []
