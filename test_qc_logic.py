@@ -129,6 +129,14 @@ class TestQCLogic(unittest.TestCase):
         self.assertNotIn("2 Pin B 50 mm", cleaned[1])
         self.assertIn("This is drawing text", cleaned[0])
 
+    def test_text_extraction_edge_cases(self):
+        # Non-existent file should raise PDFQCError
+        with self.assertRaises(qc_logic.PDFQCError):
+            qc_logic.extract_text_from_pdf("non_existent_file.pdf")
+            
+        with self.assertRaises(qc_logic.PDFQCError):
+            qc_logic.extract_page_texts("non_existent_file.pdf")
+
     def test_validate_config(self):
         # Test with valid config
         valid = {
