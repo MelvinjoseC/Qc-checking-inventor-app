@@ -6,6 +6,22 @@ from pathlib import Path
 
 logger = logging.getLogger("qc_logic")
 
+
+class PDFQCError(Exception):
+    """Base exception for all PDF QC errors."""
+    pass
+
+
+class InvalidConfigError(PDFQCError):
+    """Exception raised when configuration is invalid or missing required values."""
+    pass
+
+
+class OCRNotFoundError(PDFQCError):
+    """Exception raised when OCR dependencies are missing."""
+    pass
+
+
 DEFAULT_CONFIG = {
     "tolerance": 0.5,
     "default_dpi": 300,
