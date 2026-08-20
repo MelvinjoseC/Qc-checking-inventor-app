@@ -190,7 +190,7 @@ class PDFQCApp(tk.Tk):
         self.upload_button.pack(side="left")
 
         self.export_button = ttk.Button(
-            top, text="Export to CSV", style="Secondary.TButton", command=self.export_results, state="disabled"
+            top, text="Export Results", style="Secondary.TButton", command=self.export_results, state="disabled"
         )
         self.export_button.pack(side="left", padx=(10, 0))
 
@@ -377,15 +377,20 @@ class PDFQCApp(tk.Tk):
         path = filedialog.asksaveasfilename(
             title="Export Verification Report",
             defaultextension=".csv",
-            filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")]
+            filetypes=[("CSV Files", "*.csv"), ("JSON Files", "*.json"), ("All Files", "*.*")]
         )
         if not path:
             return
             
         try:
-            csv_data = qc_logic.export_to_csv(self._latest_results)
-            with open(path, "w", newline="", encoding="utf-8") as f:
-                f.write(csv_data)
+            if path.lower().endswith(".json"):
+                data = qc_logic.export_to_json(self._latest_results)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(data)
+            else:
+                data = qc_logic.export_to_csv(self._latest_results)
+                with open(path, "w", newline="", encoding="utf-8") as f:
+                    f.write(data)
             messagebox.showinfo("Success", f"Report successfully exported to {os.path.basename(path)}!")
         except Exception as e:
             messagebox.showerror("Export Failed", f"An error occurred while exporting: {e}")
