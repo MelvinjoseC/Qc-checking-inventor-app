@@ -449,9 +449,44 @@ class TestQCLogic(unittest.TestCase):
         self.assertIn("badge-success", html_out)
         self.assertIn("badge-danger", html_out)
 
+    def test_export_to_markdown(self):
+        results = [
+            {
+                "pos": "1",
+                "description": "Column | HEB 200",
+                "status": "PASS",
+                "quantity": 2.0,
+                "quantity_display": "2",
+                "length": 3000.0,
+                "length_display": "3000 mm",
+                "length_found": True,
+                "drawing_length": 3000.0,
+                "length_match": True,
+                "details": "Verified | Page 1"
+            },
+            {
+                "pos": "2",
+                "description": "Base Plate",
+                "status": "FAIL",
+                "length_match": False,
+                "details": "Length missing"
+            }
+        ]
+        md_out = qc_logic.export_to_markdown(results, title="Drawing QC Summary")
+        self.assertIn("# Drawing QC Summary", md_out)
+        self.assertIn("**Total Items:** 2", md_out)
+        self.assertIn("**Pass Rate:** 50.0%", md_out)
+        # Pipe escaping
+        self.assertIn("Column \\| HEB 200", md_out)
+        self.assertIn("Verified \\| Page 1", md_out)
+        # Status icons
+        self.assertIn("✅ PASS", md_out)
+        self.assertIn("❌ FAIL", md_out)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 
