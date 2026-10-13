@@ -553,9 +553,100 @@ def extract_numeric_values(text):
     return values
 
 
-def format_length(value):
+UNIT_CONVERSION_TO_MM: Dict[str, float] = {
+    "mm": 1.0,
+    "millimeter": 1.0,
+    "millimeters": 1.0,
+    "cm": 10.0,
+    "centimeter": 10.0,
+    "centimeters": 10.0,
+    "m": 1000.0,
+    "meter": 1000.0,
+    "meters": 1000.0,
+    "in": 25.4,
+    "inch": 25.4,
+    "inches": 25.4,
+    '"': 25.4,
+    "ft": 304.8,
+    "foot": 304.8,
+    "feet": 304.8,
+    "'": 304.8,
+}
+
+
+def convert_dimension(value: float, from_unit: str, to_unit: str = "mm") -> float:
+    """
+    Convert a numeric dimension from one unit to another.
+    Supported units: mm, cm, m, in, ft. Default target unit is mm.
+    """
+    src_key = from_unit.strip().lower()
+    dst_key = to_unit.strip().lower()
+
+    if src_key not in UNIT_CONVERSION_TO_MM:
+        raise ValueError(f"Unsupported source unit: '{from_unit}'")
+    if dst_key not in UNIT_CONVERSION_TO_MM:
+        raise ValueError(f"Unsupported destination unit: '{to_unit}'")
+
+    val_in_mm = value * UNIT_CONVERSION_TO_MM[src_key]
+    converted = val_in_mm / UNIT_CONVERSION_TO_MM[dst_key]
+    return round(converted, 4)
+
+
+def parse_dimension_string(dim_str: str, default_unit: str = "mm") -> Tuple[Optional[float], Optional[str]]:
+    """
+    Parse a dimension string that may include units or fractional inches.
+    Examples:
+        '150 mm' -> (150.0, '150 mm')
+        '1.5 m' -> (1500.0, '1.5 m')
+        '1/2"' -> (12.7, '1/2"')
+        '2-1/2"' -> (63.5, '2-1/2"')
+        '3 in' -> (76.2, '3 in')
+    Returns:
+        (value_in_mm, raw_display_string) or (None, None) if parsing fails.
+    """
+    if not dim_str:
+        return None, None
+    s = dim_str.strip()
+
+    # Pattern for fractional inches like 2-1/2", 2 1/2", 1/2", 3/4 in
+    fraction_pattern = r'^(?:(\d+)[-\s]+)?(\d+)/(\d+)\s*(["\']|in|inch|inches|ft|mm|cm|m)?$'
+    frac_match = re.match(fraction_pattern, s, re.IGNORECASE)
+    if frac_match:
+        whole_str, num_str, denom_str, unit_str = frac_match.groups()
+        whole = float(whole_str) if whole_str else 0.0
+        denom = float(denom_str)
+        if denom == 0:
+            return None, None
+        fraction_val = float(num_str) / denom
+        total_val = whole + fraction_val
+        unit = unit_str.lower() if unit_str else "in"
+        val_mm = convert_dimension(total_val, unit, "mm")
+        return val_mm, s
+
+    # Standard decimal pattern: '150.5 mm', '2.5 in', '100'
+    decimal_pattern = r'^([-+]?\d+(?:[,\s]\d{3})*(?:\.\d+)?)\s*([a-zA-Z"\'°]*)$'
+    dec_match = re.match(decimal_pattern, s)
+    if dec_match:
+        num_part, unit_part = dec_match.groups()
+        cleaned_num = num_part.replace(",", "").replace(" ", "")
+        try:
+            val = float(cleaned_num)
+        except ValueError:
+            return None, None
+        unit = unit_part.lower() if unit_part else default_unit.lower()
+        if unit in UNIT_CONVERSION_TO_MM:
+            val_mm = convert_dimension(val, unit, "mm")
+            return val_mm, s
+        elif not unit:
+            return val, s
+
+    return None, None
+
+
+def format_length(value: float) -> str:
     text = f"{value:.3f}".rstrip("0").rstrip(".")
     return f"{text} mm"
+
 
 
 SECTION_KEYWORDS = ["PROFILES", "PROFILE", "PLATES", "PLATE", "PINS", "PIN"]
