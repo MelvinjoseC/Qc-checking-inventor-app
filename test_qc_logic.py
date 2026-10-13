@@ -326,7 +326,54 @@ class TestQCLogic(unittest.TestCase):
         self.assertEqual(empty_summary.total_items, 0)
         self.assertEqual(empty_summary.pass_rate, 0.0)
 
+    def test_convert_dimension(self):
+        # mm to cm, m
+        self.assertEqual(qc_logic.convert_dimension(100.0, "mm", "cm"), 10.0)
+        self.assertEqual(qc_logic.convert_dimension(1500.0, "mm", "m"), 1.5)
+        # m, cm to mm
+        self.assertEqual(qc_logic.convert_dimension(2.5, "m", "mm"), 2500.0)
+        self.assertEqual(qc_logic.convert_dimension(12.0, "cm", "mm"), 120.0)
+        # in to mm (1 in = 25.4 mm)
+        self.assertEqual(qc_logic.convert_dimension(2.0, "in", "mm"), 50.8)
+        self.assertEqual(qc_logic.convert_dimension(1.0, '"', "mm"), 25.4)
+        # ft to mm (1 ft = 304.8 mm)
+        self.assertEqual(qc_logic.convert_dimension(1.0, "ft", "mm"), 304.8)
+
+        # Invalid units
+        with self.assertRaises(ValueError):
+            qc_logic.convert_dimension(10.0, "yards", "mm")
+        with self.assertRaises(ValueError):
+            qc_logic.convert_dimension(10.0, "mm", "lightyears")
+
+    def test_parse_dimension_string(self):
+        # Metric
+        val, disp = qc_logic.parse_dimension_string("150 mm")
+        self.assertEqual(val, 150.0)
+        self.assertEqual(disp, "150 mm")
+
+        val_m, _ = qc_logic.parse_dimension_string("1.5 m")
+        self.assertEqual(val_m, 1500.0)
+
+        # Fractional imperial
+        val_half, _ = qc_logic.parse_dimension_string('1/2"')
+        self.assertEqual(val_half, 12.7)
+
+        val_mixed, _ = qc_logic.parse_dimension_string('2-1/2"')
+        self.assertEqual(val_mixed, 63.5)
+
+        val_space, _ = qc_logic.parse_dimension_string('2 1/2 in')
+        self.assertEqual(val_space, 63.5)
+
+        val_three_quarter, _ = qc_logic.parse_dimension_string("3/4 in")
+        self.assertEqual(val_three_quarter, 19.05)
+
+        # Invalid or empty
+        self.assertEqual(qc_logic.parse_dimension_string(""), (None, None))
+        self.assertEqual(qc_logic.parse_dimension_string("invalid string"), (None, None))
+        self.assertEqual(qc_logic.parse_dimension_string("1/0 in"), (None, None))
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
