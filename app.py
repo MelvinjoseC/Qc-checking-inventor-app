@@ -27,6 +27,8 @@ from pathlib import Path
 import threading
 import traceback
 import qc_logic
+import diagnostics
+
 from qc_logic import (
     extract_text_from_pdf,
     extract_page_texts,
@@ -268,7 +270,26 @@ class PDFQCApp(tk.Tk):
         help_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Help", menu=help_menu)
         help_menu.add_command(label="How to Use", command=self.show_help)
+        help_menu.add_command(label="System Diagnostics", command=self.show_diagnostics)
         help_menu.add_command(label="About", command=self.show_about)
+
+    def show_diagnostics(self):
+        diag = diagnostics.run_system_diagnostics()
+        diag_text = diagnostics.format_diagnostics_report(diag)
+
+        dialog = tk.Toplevel(self)
+        dialog.title("System Diagnostics")
+        dialog.geometry("540x420")
+        dialog.transient(self)
+        dialog.grab_set()
+
+        text_box = tk.Text(dialog, wrap="word", font=("Consolas", 10), bg="#ffffff", fg="#20242c")
+        text_box.insert("1.0", diag_text)
+        text_box.configure(state="disabled")
+        text_box.pack(fill="both", expand=True, padx=12, pady=12)
+
+        ttk.Button(dialog, text="Close", command=dialog.destroy).pack(pady=(0, 10))
+
 
     def show_help(self):
         help_text = (
@@ -373,17 +394,32 @@ class PDFQCApp(tk.Tk):
         if not self._latest_results:
             messagebox.showerror("Error", "No results available to export.")
             return
-        
+
         path = filedialog.asksaveasfilename(
             title="Export Verification Report",
-            defaultextension=".csv",
-            filetypes=[("CSV Files", "*.csv"), ("JSON Files", "*.json"), ("All Files", "*.*")]
+            defaultextension=".html",
+            filetypes=[
+                ("HTML Audit Report", "*.html"),
+                ("Markdown Report", "*.md"),
+                ("CSV Spreadsheet", "*.csv"),
+                ("JSON Data", "*.json"),
+                ("All Files", "*.*")
+            ]
         )
         if not path:
             return
-            
+
         try:
-            if path.lower().endswith(".json"):
+            lower = path.lower()
+            if lower.endswith(".html"):
+                data = qc_logic.export_to_html(self._latest_results)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(data)
+            elif lower.endswith(".md"):
+                data = qc_logic.export_to_markdown(self._latest_results)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(data)
+            elif lower.endswith(".json"):
                 data = qc_logic.export_to_json(self._latest_results)
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(data)
@@ -394,6 +430,7 @@ class PDFQCApp(tk.Tk):
             messagebox.showinfo("Success", f"Report successfully exported to {os.path.basename(path)}!")
         except Exception as e:
             messagebox.showerror("Export Failed", f"An error occurred while exporting: {e}")
+
 
     def _setup_style(self):
         style = ttk.Style(self)
