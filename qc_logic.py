@@ -1098,3 +1098,201 @@ def export_to_json(results: List[Dict[str, Any]]) -> str:
     import json
     return json.dumps(results, indent=4)
 
+
+def export_to_html(results: List[Dict[str, Any]], title: str = "BOM Quality Control Audit Report") -> str:
+    """
+    Generate a self-contained, beautifully styled HTML audit report.
+    Includes overall metrics, status breakdown, and color-coded table rows.
+    """
+    import html
+    from datetime import datetime
+
+    summary = CheckSummary.from_results(results)
+    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    badge_class = "badge-success" if summary.pass_rate >= 80 else ("badge-warning" if summary.pass_rate >= 50 else "badge-danger")
+
+    rows_html = []
+    for r in results:
+        status = html.escape(str(r.get("status", "FAIL")))
+        pos = html.escape(str(r.get("pos", "")))
+        desc = html.escape(str(r.get("description", "")))
+        qty = html.escape(str(r.get("quantity_display", r.get("quantity", "")) or "-"))
+        len_bom = html.escape(str(r.get("length_display", r.get("length", "")) or "-"))
+        len_dwg = html.escape(str(r.get("drawing_length", "N/A") if r.get("length_found") else "N/A"))
+        len_match = '<span class="status-yes">Yes</span>' if r.get("length_match") else '<span class="status-no">No</span>'
+        thk_bom = html.escape(str(r.get("thickness_display", r.get("thickness", "")) or "-"))
+        thk_dwg = html.escape(str(r.get("drawing_thickness", "N/A") if r.get("thickness_found") else "N/A"))
+        thk_match = '<span class="status-yes">Yes</span>' if r.get("thickness_match") else '<span class="status-no">No</span>'
+        details = html.escape(str(r.get("details", "")))
+
+        status_class = "row-pass" if status == "PASS" else ("row-warn" if status == "WARNING" else "row-fail")
+        badge_style = "badge-success" if status == "PASS" else ("badge-warning" if status == "WARNING" else "badge-danger")
+
+        rows_html.append(f"""
+            <tr class="{status_class}">
+                <td><strong>{pos}</strong></td>
+                <td>{desc}</td>
+                <td><span class="badge {badge_style}">{status}</span></td>
+                <td>{qty}</td>
+                <td>{len_bom}</td>
+                <td>{len_dwg}</td>
+                <td>{len_match}</td>
+                <td>{thk_bom}</td>
+                <td>{thk_dwg}</td>
+                <td>{thk_match}</td>
+                <td><small>{details}</small></td>
+            </tr>
+        """)
+
+    table_body = "\n".join(rows_html)
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{html.escape(title)}</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f6f9;
+            color: #2d3748;
+            margin: 0;
+            padding: 24px;
+        }}
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            padding: 32px;
+        }}
+        h1 {{
+            margin-top: 0;
+            color: #1a202c;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 12px;
+        }}
+        .meta {{
+            color: #718096;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }}
+        .stats-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }}
+        .stat-card {{
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+        }}
+        .stat-value {{
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2b6cb0;
+        }}
+        .stat-label {{
+            font-size: 0.85rem;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }}
+        th, td {{
+            padding: 12px 14px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }}
+        th {{
+            background-color: #edf2f7;
+            color: #4a5568;
+            font-weight: 600;
+        }}
+        tr:hover {{
+            background-color: #f7fafc;
+        }}
+        .row-pass {{ background-color: #f0fff4; }}
+        .row-fail {{ background-color: #fff5f5; }}
+        .badge {{
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }}
+        .badge-success {{ background-color: #c6f6d5; color: #22543d; }}
+        .badge-warning {{ background-color: #feebc8; color: #744210; }}
+        .badge-danger {{ background-color: #fed7d7; color: #742a2a; }}
+        .status-yes {{ color: #22543d; font-weight: bold; }}
+        .status-no {{ color: #742a2a; font-weight: bold; }}
+        footer {{
+            margin-top: 32px;
+            font-size: 0.85rem;
+            color: #a0aec0;
+            text-align: center;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{html.escape(title)}</h1>
+        <div class="meta">Generated: {timestamp_str} | Tool: PDF Drawing Checker v1.2</div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{summary.total_items}</div>
+                <div class="stat-label">Total Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #2f855a;">{summary.passed}</div>
+                <div class="stat-label">Passed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #c53030;">{summary.failed}</div>
+                <div class="stat-label">Failed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value {badge_class}">{summary.pass_rate}%</div>
+                <div class="stat-label">Pass Rate</div>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>POS</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Qty</th>
+                    <th>BOM Length</th>
+                    <th>DWG Length</th>
+                    <th>Length Match</th>
+                    <th>BOM Thk</th>
+                    <th>DWG Thk</th>
+                    <th>Thk Match</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {table_body}
+            </tbody>
+        </table>
+        <footer>
+            Automated QC Report &bull; CAD Quality Assurance
+        </footer>
+    </div>
+</body>
+</html>"""
+    return html_content
+
+
