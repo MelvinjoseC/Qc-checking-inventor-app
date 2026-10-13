@@ -269,6 +269,64 @@ class TestQCLogic(unittest.TestCase):
         self.assertIn('"description": "Plate Section"', json_str)
         self.assertIn('"status": "PASS"', json_str)
 
+    def test_domain_models_dataclass(self):
+        anchor = qc_logic.TableAnchor(x0=10.0, x1=20.0, top=30.0, bottom=40.0)
+        self.assertEqual(anchor.to_dict(), {"x0": 10.0, "x1": 20.0, "top": 30.0, "bottom": 40.0})
+        restored_anchor = qc_logic.TableAnchor.from_dict({"x0": 10.0, "x1": 20.0, "top": 30.0, "bottom": 40.0})
+        self.assertEqual(restored_anchor.top, 30.0)
+        self.assertIsNone(qc_logic.TableAnchor.from_dict(None))
+
+        item = qc_logic.BOMItem(
+            pos="10",
+            description="Beam Section",
+            length=1200.0,
+            length_display="1200 mm",
+            quantity=2.0,
+            table_anchor=anchor
+        )
+        item_dict = item.to_dict()
+        self.assertEqual(item_dict["pos"], "10")
+        self.assertEqual(item_dict["table_anchor"]["x0"], 10.0)
+
+        restored_item = qc_logic.BOMItem.from_dict(item_dict)
+        self.assertEqual(restored_item.pos, "10")
+        self.assertEqual(restored_item.description, "Beam Section")
+        self.assertEqual(restored_item.length, 1200.0)
+
+        res = qc_logic.QCValidationResult(
+            pos="10",
+            description="Beam Section",
+            status=qc_logic.QCStatus.PASS.value,
+            length=1200.0,
+            drawing_length=1200.0,
+            length_match=True
+        )
+        res_dict = res.to_dict()
+        self.assertEqual(res_dict["status"], "PASS")
+        self.assertTrue(res_dict["length_match"])
+        restored_res = qc_logic.QCValidationResult.from_dict(res_dict)
+        self.assertEqual(restored_res.status, "PASS")
+
+    def test_check_summary_aggregation(self):
+        results = [
+            qc_logic.QCValidationResult(pos="1", description="Part 1", status=qc_logic.QCStatus.PASS.value),
+            qc_logic.QCValidationResult(pos="2", description="Part 2", status=qc_logic.QCStatus.FAIL.value),
+            qc_logic.QCValidationResult(pos="3", description="Part 3", status=qc_logic.QCStatus.WARNING.value),
+            qc_logic.QCValidationResult(pos="4", description="Part 4", status=qc_logic.QCStatus.PASS.value),
+        ]
+        summary = qc_logic.CheckSummary.from_results(results)
+        self.assertEqual(summary.total_items, 4)
+        self.assertEqual(summary.passed, 2)
+        self.assertEqual(summary.failed, 1)
+        self.assertEqual(summary.warnings, 1)
+        self.assertEqual(summary.pass_rate, 50.0)
+
+        # Empty results edge case
+        empty_summary = qc_logic.CheckSummary.from_results([])
+        self.assertEqual(empty_summary.total_items, 0)
+        self.assertEqual(empty_summary.pass_rate, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
+
