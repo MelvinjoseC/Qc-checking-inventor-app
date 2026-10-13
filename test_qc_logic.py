@@ -1,5 +1,7 @@
+import os
 import unittest
 import qc_logic
+
 
 
 class TestQCLogic(unittest.TestCase):
@@ -483,9 +485,30 @@ class TestQCLogic(unittest.TestCase):
         self.assertIn("✅ PASS", md_out)
         self.assertIn("❌ FAIL", md_out)
 
+    def test_setup_logging(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".log", delete=False) as tmp:
+            tmp_log = tmp.name
+
+        try:
+            test_logger = qc_logic.setup_logging(log_file=tmp_log, level=qc_logic.logging.DEBUG, console=False)
+            self.assertIsNotNone(test_logger)
+            test_logger.info("Test log message")
+            with open(tmp_log, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("Test log message", content)
+        finally:
+            # Clean up handlers before removing file on Windows
+            for h in list(test_logger.handlers):
+                h.close()
+                test_logger.removeHandler(h)
+            if os.path.exists(tmp_log):
+                os.remove(tmp_log)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

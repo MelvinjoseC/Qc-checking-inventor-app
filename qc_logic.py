@@ -2,12 +2,52 @@ import re
 import sys
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Tuple, Optional, Set, Any, Union
 
 logger = logging.getLogger("qc_logic")
+
+
+def setup_logging(
+    log_file: Optional[Union[str, Path]] = "qc_audit.log",
+    level: int = logging.INFO,
+    console: bool = True
+) -> logging.Logger:
+    """
+    Configure application-wide structured logging with rotating file handler
+    and optional console output.
+    """
+    root_logger = logging.getLogger("qc_logic")
+    root_logger.setLevel(level)
+
+    if not root_logger.handlers:
+        formatter = logging.Formatter(
+            "[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        if console:
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(formatter)
+            root_logger.addHandler(console_handler)
+
+        if log_file:
+            try:
+                file_handler = RotatingFileHandler(
+                    str(log_file),
+                    maxBytes=2 * 1024 * 1024,
+                    backupCount=5,
+                    encoding="utf-8"
+                )
+                file_handler.setFormatter(formatter)
+                root_logger.addHandler(file_handler)
+            except Exception as e:
+                root_logger.warning("Could not initialize file log handler: %s", e)
+
+    return root_logger
+
 
 
 class PDFQCError(Exception):
