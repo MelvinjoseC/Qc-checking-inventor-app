@@ -1,0 +1,7 @@
+# Core runtime dependencies for PDF Drawing Checker
+PyPDF2>=3.0.0
+pdfplumber>=0.10.0
+pdf2image>=1.16.0
+pytesseract>=0.3.10
+Pillow>=9.5.0
+pyspellchecker>=0.7.0
