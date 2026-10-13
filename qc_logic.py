@@ -1296,3 +1296,48 @@ def export_to_html(results: List[Dict[str, Any]], title: str = "BOM Quality Cont
     return html_content
 
 
+def export_to_markdown(results: List[Dict[str, Any]], title: str = "BOM Quality Control Report") -> str:
+    """
+    Generate a GitHub Flavored Markdown summary report.
+    Ideal for pull request summaries and CI/CD step logs.
+    """
+    summary = CheckSummary.from_results(results)
+
+    status_icon = {
+        QCStatus.PASS.value: "✅ PASS",
+        QCStatus.FAIL.value: "❌ FAIL",
+        QCStatus.WARNING.value: "⚠️ WARN",
+        QCStatus.SKIPPED.value: "⏭️ SKIP",
+    }
+
+    lines = [
+        f"# {title}",
+        "",
+        f"**Total Items:** {summary.total_items} | **Passed:** {summary.passed} | **Failed:** {summary.failed} | **Pass Rate:** {summary.pass_rate}%",
+        "",
+        "| POS | Description | Status | Qty | BOM Length | DWG Length | Match | BOM Thk | DWG Thk | Match | Details |",
+        "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
+    ]
+
+    for r in results:
+        status_raw = str(r.get("status", "FAIL"))
+        status_str = status_icon.get(status_raw, status_raw)
+        pos = str(r.get("pos", ""))
+        desc = str(r.get("description", "")).replace("|", "\\|")
+        qty = str(r.get("quantity_display", r.get("quantity", "")) or "-")
+        len_bom = str(r.get("length_display", r.get("length", "")) or "-")
+        len_dwg = str(r.get("drawing_length", "N/A") if r.get("length_found") else "N/A")
+        len_match = "Yes" if r.get("length_match") else "No"
+        thk_bom = str(r.get("thickness_display", r.get("thickness", "")) or "-")
+        thk_dwg = str(r.get("drawing_thickness", "N/A") if r.get("thickness_found") else "N/A")
+        thk_match = "Yes" if r.get("thickness_match") else "No"
+        details = str(r.get("details", "")).replace("|", "\\|")
+
+        row = f"| {pos} | {desc} | {status_str} | {qty} | {len_bom} | {len_dwg} | {len_match} | {thk_bom} | {thk_dwg} | {thk_match} | {details} |"
+        lines.append(row)
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+
