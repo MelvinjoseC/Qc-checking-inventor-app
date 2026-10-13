@@ -411,9 +411,48 @@ class TestQCLogic(unittest.TestCase):
         # Empty POS
         self.assertEqual(qc_logic.generate_pos_callout_variants(""), [])
 
+    def test_export_to_html(self):
+        results = [
+            {
+                "pos": "1",
+                "description": "Base <Plate> & Flange",
+                "status": "PASS",
+                "quantity": 1.0,
+                "quantity_display": "1",
+                "length": 500.0,
+                "length_display": "500 mm",
+                "length_found": True,
+                "drawing_length": 500.0,
+                "length_match": True,
+                "thickness": 10.0,
+                "thickness_display": "10 mm",
+                "thickness_found": True,
+                "drawing_thickness": 10.0,
+                "thickness_match": True,
+                "details": "Callout verified"
+            },
+            {
+                "pos": "2",
+                "description": "Support Angle",
+                "status": "FAIL",
+                "length_match": False,
+                "details": "Length mismatch"
+            }
+        ]
+        html_out = qc_logic.export_to_html(results, title="Fabrication Audit Report")
+        self.assertIn("<!DOCTYPE html>", html_out)
+        self.assertIn("Fabrication Audit Report", html_out)
+        self.assertIn("Total Items", html_out)
+        self.assertIn("Pass Rate", html_out)
+        # Verify HTML escaping
+        self.assertIn("Base &lt;Plate&gt; &amp; Flange", html_out)
+        self.assertIn("badge-success", html_out)
+        self.assertIn("badge-danger", html_out)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 
