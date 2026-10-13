@@ -3,6 +3,8 @@ import sys
 import json
 import logging
 from pathlib import Path
+from enum import Enum
+from dataclasses import dataclass, field, asdict
 from typing import Dict, List, Tuple, Optional, Set, Any, Union
 
 logger = logging.getLogger("qc_logic")
@@ -21,6 +23,165 @@ class InvalidConfigError(PDFQCError):
 class OCRNotFoundError(PDFQCError):
     """Exception raised when OCR dependencies are missing."""
     pass
+
+
+class QCStatus(str, Enum):
+    """Enumeration of quality control check status."""
+    PASS = "PASS"
+    FAIL = "FAIL"
+    WARNING = "WARNING"
+    SKIPPED = "SKIPPED"
+
+
+@dataclass
+class TableAnchor:
+    """Bounding box coordinates for a table cell anchor."""
+    x0: float = 0.0
+    x1: float = 0.0
+    top: float = 0.0
+    bottom: float = 0.0
+
+    def to_dict(self) -> Dict[str, float]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> Optional["TableAnchor"]:
+        if not data:
+            return None
+        return cls(
+            x0=float(data.get("x0", 0.0)),
+            x1=float(data.get("x1", 0.0)),
+            top=float(data.get("top", 0.0)),
+            bottom=float(data.get("bottom", 0.0))
+        )
+
+
+@dataclass
+class BOMItem:
+    """Represents a single Bill of Materials line item parsed from drawing."""
+    pos: str
+    description: str
+    length: Optional[float] = None
+    length_display: Optional[str] = None
+    length_options: List[float] = field(default_factory=list)
+    table_id: Optional[int] = None
+    table_label: Optional[str] = None
+    quantity: Optional[float] = None
+    quantity_display: Optional[str] = None
+    callout_quantity_text: Optional[str] = None
+    thickness: Optional[float] = None
+    thickness_display: Optional[str] = None
+    table_page: Optional[int] = None
+    table_anchor: Optional[Union[TableAnchor, Dict[str, float]]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        if isinstance(self.table_anchor, TableAnchor):
+            d["table_anchor"] = self.table_anchor.to_dict()
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "BOMItem":
+        anchor = data.get("table_anchor")
+        if isinstance(anchor, dict):
+            anchor = TableAnchor.from_dict(anchor)
+        return cls(
+            pos=str(data.get("pos", "")),
+            description=str(data.get("description", "")),
+            length=data.get("length"),
+            length_display=data.get("length_display"),
+            length_options=data.get("length_options") or [],
+            table_id=data.get("table_id"),
+            table_label=data.get("table_label"),
+            quantity=data.get("quantity"),
+            quantity_display=data.get("quantity_display"),
+            callout_quantity_text=data.get("callout_quantity_text"),
+            thickness=data.get("thickness"),
+            thickness_display=data.get("thickness_display"),
+            table_page=data.get("table_page"),
+            table_anchor=anchor
+        )
+
+
+@dataclass
+class QCValidationResult:
+    """Result of validating a BOM line item against drawing annotations."""
+    pos: str
+    description: str
+    status: str = QCStatus.FAIL.value
+    quantity: Optional[float] = None
+    quantity_display: Optional[str] = None
+    length: Optional[float] = None
+    length_display: Optional[str] = None
+    length_found: bool = False
+    drawing_length: Optional[float] = None
+    length_match: bool = False
+    thickness: Optional[float] = None
+    thickness_display: Optional[str] = None
+    thickness_found: bool = False
+    drawing_thickness: Optional[float] = None
+    thickness_match: bool = False
+    details: str = ""
+    page: Optional[int] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "QCValidationResult":
+        return cls(
+            pos=str(data.get("pos", "")),
+            description=str(data.get("description", "")),
+            status=str(data.get("status", QCStatus.FAIL.value)),
+            quantity=data.get("quantity"),
+            quantity_display=data.get("quantity_display"),
+            length=data.get("length"),
+            length_display=data.get("length_display"),
+            length_found=bool(data.get("length_found", False)),
+            drawing_length=data.get("drawing_length"),
+            length_match=bool(data.get("length_match", False)),
+            thickness=data.get("thickness"),
+            thickness_display=data.get("thickness_display"),
+            thickness_found=bool(data.get("thickness_found", False)),
+            drawing_thickness=data.get("drawing_thickness"),
+            thickness_match=bool(data.get("thickness_match", False)),
+            details=str(data.get("details", "")),
+            page=data.get("page")
+        )
+
+
+@dataclass
+class CheckSummary:
+    """Aggregated summary of quality control check results."""
+    total_items: int = 0
+    passed: int = 0
+    failed: int = 0
+    warnings: int = 0
+    pass_rate: float = 0.0
+
+    @classmethod
+    def from_results(cls, results: List[Union[QCValidationResult, Dict[str, Any]]]) -> "CheckSummary":
+        total = len(results)
+        passed = 0
+        failed = 0
+        warnings = 0
+        for r in results:
+            status = r.status if isinstance(r, QCValidationResult) else r.get("status", "")
+            if status == QCStatus.PASS.value:
+                passed += 1
+            elif status == QCStatus.WARNING.value:
+                warnings += 1
+            else:
+                failed += 1
+        rate = (passed / total * 100.0) if total > 0 else 0.0
+        return cls(
+            total_items=total,
+            passed=passed,
+            failed=failed,
+            warnings=warnings,
+            pass_rate=round(rate, 2)
+        )
+
 
 
 DEFAULT_CONFIG = {
