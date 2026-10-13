@@ -372,8 +372,48 @@ class TestQCLogic(unittest.TestCase):
         self.assertEqual(qc_logic.parse_dimension_string("invalid string"), (None, None))
         self.assertEqual(qc_logic.parse_dimension_string("1/0 in"), (None, None))
 
+    def test_is_within_tolerance(self):
+        # Absolute tolerance
+        self.assertTrue(qc_logic.is_within_tolerance(100.2, 100.0, tolerance=0.5))
+        self.assertFalse(qc_logic.is_within_tolerance(100.6, 100.0, tolerance=0.5))
+
+        # Percentage tolerance: 100 ± 2% -> 98 to 102
+        self.assertTrue(qc_logic.is_within_tolerance(101.5, 100.0, tolerance=2.0, mode=qc_logic.ToleranceMode.PERCENTAGE))
+        self.assertFalse(qc_logic.is_within_tolerance(103.0, 100.0, tolerance=2.0, mode=qc_logic.ToleranceMode.PERCENTAGE))
+        # Zero expected
+        self.assertTrue(qc_logic.is_within_tolerance(0.0, 0.0, tolerance=1.0, mode=qc_logic.ToleranceMode.PERCENTAGE))
+
+    def test_pick_candidate_percentage_tolerance(self):
+        candidates = [98.5, 120.0]
+        # With percentage tolerance of 2%, 98.5 is within 2% of 100.0
+        val, mode = qc_logic._pick_candidate(
+            candidates, 100.0, prefer_max=True, tolerance=2.0, tolerance_mode=qc_logic.ToleranceMode.PERCENTAGE
+        )
+        self.assertEqual(val, 98.5)
+        self.assertEqual(mode, "match_expected")
+
+    def test_generate_pos_callout_variants(self):
+        # For numeric POS '1'
+        variants = qc_logic.generate_pos_callout_variants("1")
+        self.assertIn(["1"], variants)
+        self.assertIn(["pos", "1"], variants)
+        self.assertIn(["pos1"], variants)
+        self.assertIn(["item", "1"], variants)
+        self.assertIn(["p1"], variants)
+        self.assertIn(["mk", "1"], variants)
+
+        # For decimal POS '2.0' -> should include both '2.0' and '2'
+        variants_dec = qc_logic.generate_pos_callout_variants("2.0")
+        self.assertIn(["2.0"], variants_dec)
+        self.assertIn(["2"], variants_dec)
+        self.assertIn(["pos", "2"], variants_dec)
+
+        # Empty POS
+        self.assertEqual(qc_logic.generate_pos_callout_variants(""), [])
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
