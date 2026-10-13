@@ -33,6 +33,13 @@ class QCStatus(str, Enum):
     SKIPPED = "SKIPPED"
 
 
+class ToleranceMode(str, Enum):
+    """Evaluation mode for measurement tolerances."""
+    ABSOLUTE = "absolute"
+    PERCENTAGE = "percentage"
+
+
+
 @dataclass
 class TableAnchor:
     """Bounding box coordinates for a table cell anchor."""
@@ -509,7 +516,78 @@ def _numeric_from_text(text):
     return numbers
 
 
-def _pick_candidate(candidates, expected_length, prefer_max=False, tolerance=0.5):
+def is_within_tolerance(
+    actual: float,
+    expected: float,
+    tolerance: float = 0.5,
+    mode: Union[ToleranceMode, str] = ToleranceMode.ABSOLUTE
+) -> bool:
+    """
+    Check if actual value is within tolerance of expected value.
+    Supports absolute tolerance (e.g. ±0.5 mm) or percentage tolerance (e.g. ±2%).
+    """
+    mode_str = mode.value if isinstance(mode, ToleranceMode) else str(mode).lower()
+    if mode_str == ToleranceMode.PERCENTAGE.value or mode_str == "percentage":
+        if expected == 0.0:
+            return abs(actual) <= tolerance
+        pct_diff = abs(actual - expected) / abs(expected) * 100.0
+        return pct_diff <= tolerance
+    return abs(actual - expected) <= tolerance
+
+
+def generate_pos_callout_variants(pos: str) -> List[List[str]]:
+    """
+    Generate normalized token sequences for matching CAD callouts on drawing sheets.
+    Supports common fabrication callout notations:
+    - 'POS 1', 'POS-1', 'P1', '#1', 'ITEM 1', 'MK 1', 'MARK 1'
+    """
+    clean_pos = str(pos).strip().lower()
+    if not clean_pos:
+        return []
+
+    num_val = _pos_numeric_value(clean_pos)
+    num_str = f"{num_val:g}" if num_val is not None else clean_pos
+
+    variants = [
+        [clean_pos],
+        ["pos", clean_pos],
+        [f"pos{clean_pos}"],
+        ["item", clean_pos],
+        [f"item{clean_pos}"],
+        [f"p{clean_pos}"],
+        ["mk", clean_pos],
+        ["mark", clean_pos],
+    ]
+
+    if num_str != clean_pos:
+        variants.extend([
+            [num_str],
+            ["pos", num_str],
+            [f"pos{num_str}"],
+            ["item", num_str],
+            [f"p{num_str}"],
+            ["mk", num_str],
+        ])
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique_variants = []
+    for seq in variants:
+        t_seq = tuple(seq)
+        if t_seq not in seen:
+            seen.add(t_seq)
+            unique_variants.append(seq)
+
+    return unique_variants
+
+
+def _pick_candidate(
+    candidates: List[float],
+    expected_length: Optional[float],
+    prefer_max: bool = False,
+    tolerance: float = 0.5,
+    tolerance_mode: Union[ToleranceMode, str] = ToleranceMode.ABSOLUTE
+) -> Tuple[Optional[float], str]:
     """
     Return the chosen candidate and selection mode.
     prefer_max=True forces the largest value unless one matches expected_length within tolerance.
@@ -521,11 +599,12 @@ def _pick_candidate(candidates, expected_length, prefer_max=False, tolerance=0.5
         return ordered[0], "max_in_window"
     if prefer_max:
         for value in ordered:
-            if abs(value - expected_length) <= tolerance:
+            if is_within_tolerance(value, expected_length, tolerance, tolerance_mode):
                 return value, "match_expected"
         return ordered[0], "max_in_window"
     best = min(candidates, key=lambda v: (abs(v - expected_length), -v))
     return best, "closest_to_expected"
+
 
 
 def tokenize(text):
