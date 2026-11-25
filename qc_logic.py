@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from enum import Enum
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Tuple, Optional, Set, Any, Union
+from typing import Dict, List, Tuple, Optional, Set, Any, Union, Sequence
 
 logger = logging.getLogger("qc_logic")
 
@@ -207,7 +207,7 @@ class CheckSummary:
     pass_rate: float = 0.0
 
     @classmethod
-    def from_results(cls, results: List[Union[QCValidationResult, Dict[str, Any]]]) -> "CheckSummary":
+    def from_results(cls, results: Sequence[Union[QCValidationResult, Dict[str, Any]]]) -> "CheckSummary":
         total = len(results)
         passed = 0
         failed = 0
@@ -312,19 +312,19 @@ def load_spellcheck_allowlist(path: Union[str, Path] = 'spellcheck_allowlist.txt
 try:
     import PyPDF2
 except Exception:
-    PyPDF2 = None
+    PyPDF2 = None  # type: ignore[assignment]
 
 try:
     from pdf2image import convert_from_path
     import pytesseract
 except Exception:
-    convert_from_path = None
-    pytesseract = None
+    convert_from_path = None  # type: ignore[assignment]
+    pytesseract = None  # type: ignore[assignment]
 
 try:
     import pdfplumber
 except Exception:
-    pdfplumber = None
+    pdfplumber = None  # type: ignore[assignment]
 
 
 def extract_text_from_pdf(path: Union[str, Path]) -> str:
@@ -339,9 +339,9 @@ def extract_text_from_pdf(path: Union[str, Path]) -> str:
     try:
         with open(path, "rb") as f:
             reader = PyPDF2.PdfReader(f)
-            for p in reader.pages:
+            for page in reader.pages:
                 try:
-                    t = p.extract_text() or ""
+                    t = page.extract_text() or ""
                 except Exception as e:
                     logger.warning("Failed to extract text from a page: %s", e)
                     t = ""
@@ -374,9 +374,9 @@ def extract_page_texts(path: Union[str, Path]) -> List[str]:
     if not texts and pdfplumber is not None:
         try:
             with pdfplumber.open(path) as pdf:
-                for i, page in enumerate(pdf.pages):
+                for i, plumber_page in enumerate(pdf.pages):
                     try:
-                        texts.append(page.extract_text() or "")
+                        texts.append(plumber_page.extract_text() or "")
                     except Exception as page_err:
                         logger.warning("Failed to extract text from page %d using pdfplumber: %s", i + 1, page_err)
                         texts.append("")
@@ -411,9 +411,10 @@ def ocr_pdf_to_text(
         if not pop_p.exists():
             raise OCRNotFoundError(f"Poppler path does not exist: {poppler_path}")
     try:
-        imgs = convert_from_path(
-            path, dpi=dpi, poppler_path=poppler_path, first_page=1, last_page=None
-        )
+        convert_kwargs: Dict[str, Any] = {"dpi": dpi, "first_page": 1}
+        if poppler_path:
+            convert_kwargs["poppler_path"] = poppler_path
+        imgs = convert_from_path(path, **convert_kwargs)
         if pages:
             imgs = [imgs[i - 1] for i in pages if 1 <= i <= len(imgs)]
     except Exception as e:
