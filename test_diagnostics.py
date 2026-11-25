@@ -50,6 +50,15 @@ class TestDiagnostics(unittest.TestCase):
         self.assertIn("PDF DRAWING CHECKER SYSTEM DIAGNOSTICS", formatted)
         self.assertIn("[READY]", formatted)
 
+    @patch("shutil.which")
+    @patch("subprocess.run")
+    def test_check_binary_reads_stderr_version(self, mock_run, mock_which):
+        mock_which.return_value = "/usr/bin/pdftoppm"
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="pdftoppm version 24.02.0\n")
+        res = diagnostics.check_binary("pdftoppm", version_arg="-v")
+        self.assertTrue(res["found"])
+        self.assertEqual(res["version"], "pdftoppm version 24.02.0")
+
 
 if __name__ == "__main__":
     unittest.main()
