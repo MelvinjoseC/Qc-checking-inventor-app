@@ -44,13 +44,13 @@ class TestQCLogic(unittest.TestCase):
     def test_normalize_token_variants(self):
         self.assertEqual(qc_logic._normalize_token_variants(None), [])
         self.assertEqual(qc_logic._normalize_token_variants([]), [])
-        
+
         # Simple list of strings
         self.assertEqual(
             qc_logic._normalize_token_variants(["token1", "token2"]),
             [["token1", "token2"]]
         )
-        
+
         # List of lists/tuples
         variants = [["a", "b"], "c", None, ["d"]]
         self.assertEqual(
@@ -64,7 +64,7 @@ class TestQCLogic(unittest.TestCase):
             {"text": "1.0", "x0": 22, "x1": 35, "top": 50, "bottom": 60},
             {"text": "PLATE", "x0": 40, "x1": 80, "top": 50, "bottom": 60},
         ]
-        
+
         # Exact match
         bbox = qc_logic._match_callout_on_page(["pos", "1.0"], words)
         self.assertIsNotNone(bbox)
@@ -82,7 +82,7 @@ class TestQCLogic(unittest.TestCase):
 
     def test_pick_candidate(self):
         candidates = [100.0, 120.0, 150.0]
-        
+
         # Pick exact expected length
         val, mode = qc_logic._pick_candidate(candidates, 120.0)
         self.assertEqual(val, 120.0)
@@ -135,7 +135,7 @@ class TestQCLogic(unittest.TestCase):
         # Non-existent file should raise PDFQCError
         with self.assertRaises(qc_logic.PDFQCError):
             qc_logic.extract_text_from_pdf("non_existent_file.pdf")
-            
+
         with self.assertRaises(qc_logic.PDFQCError):
             qc_logic.extract_page_texts("non_existent_file.pdf")
 
@@ -508,9 +508,3 @@ class TestQCLogic(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-
-
-
-

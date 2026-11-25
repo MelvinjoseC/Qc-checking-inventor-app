@@ -244,7 +244,7 @@ def validate_config(config: Any) -> Dict[str, Any]:
     """
     if not isinstance(config, dict):
         return DEFAULT_CONFIG.copy()
-    
+
     validated = DEFAULT_CONFIG.copy()
     if "tolerance" in config:
         try:
@@ -253,7 +253,7 @@ def validate_config(config: Any) -> Dict[str, Any]:
                 validated["tolerance"] = tolerance
         except (ValueError, TypeError):
             pass
-            
+
     if "default_dpi" in config:
         try:
             dpi = int(config["default_dpi"])
@@ -261,13 +261,13 @@ def validate_config(config: Any) -> Dict[str, Any]:
                 validated["default_dpi"] = dpi
         except (ValueError, TypeError):
             pass
-            
+
     if "poppler_path" in config:
         validated["poppler_path"] = str(config["poppler_path"])
-        
+
     if "tesseract_path" in config:
         validated["tesseract_path"] = str(config["tesseract_path"])
-        
+
     return validated
 
 
@@ -1090,10 +1090,10 @@ def _coalesce_display(*values: Any, default: Any = "") -> Any:
 def export_to_csv(results: List[Dict[str, Any]], columns: Optional[List[str]] = None) -> str:
     import io
     import csv
-    
+
     output = io.StringIO()
     writer = csv.writer(output, lineterminator='\n')
-    
+
     default_headers = {
         "pos": "POS",
         "description": "Description",
@@ -1107,13 +1107,13 @@ def export_to_csv(results: List[Dict[str, Any]], columns: Optional[List[str]] = 
         "thickness_match": "Thickness Match",
         "details": "Details",
     }
-    
+
     if columns is None:
         columns = list(default_headers.keys())
-        
+
     headers = [default_headers.get(col, col.capitalize()) for col in columns]
     writer.writerow(headers)
-    
+
     for r in results:
         row_data = []
         for col in columns:
@@ -1142,7 +1142,7 @@ def export_to_csv(results: List[Dict[str, Any]], columns: Optional[List[str]] = 
             else:
                 row_data.append(r.get(col, ""))
         writer.writerow(row_data)
-        
+
     return output.getvalue()
 
 
@@ -1397,6 +1397,3 @@ def export_to_markdown(results: List[Dict[str, Any]], title: str = "BOM Quality 
 
     lines.append("")
     return "\n".join(lines)
-
-
-

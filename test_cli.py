@@ -1,11 +1,9 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import os
 import tempfile
-from pathlib import Path
 
 import cli
-import qc_logic
 
 
 class TestCLI(unittest.TestCase):

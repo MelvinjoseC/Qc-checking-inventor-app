@@ -177,7 +177,6 @@ def format_diagnostics_report(diag: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-
 def main() -> int:
     report = run_system_diagnostics()
     print(format_diagnostics_report(report))
