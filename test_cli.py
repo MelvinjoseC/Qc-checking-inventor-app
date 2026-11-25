@@ -131,6 +131,19 @@ class TestCLI(unittest.TestCase):
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
+    def test_main_negative_tolerance_rejected(self):
+        exit_code = cli.main(["dummy.pdf", "-t", "-0.5"])
+        self.assertEqual(exit_code, 2)
+
+    @patch("cli.check_pdf")
+    def test_main_creates_nested_output_directory(self, mock_check_pdf):
+        mock_check_pdf.return_value = []
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            nested_out = os.path.join(tmp_dir, "reports", "sub", "out.json")
+            exit_code = cli.main(["dummy.pdf", "-f", "json", "-o", nested_out])
+            self.assertEqual(exit_code, 0)
+            self.assertTrue(os.path.exists(nested_out))
+
 
 if __name__ == "__main__":
     unittest.main()
