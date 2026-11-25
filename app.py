@@ -35,7 +35,6 @@ from qc_logic import (
     ocr_pdf_to_text,
     extract_rows_with_plumber,
     remove_table_snippets_from_pages,
-    PDFQCError,
     OCRNotFoundError,
 )
 
@@ -1837,8 +1836,6 @@ class PDFQCApp(tk.Tk):
                 table_order.append(label)
             table_groups[label].append(row)
 
-        pending_check = self._spellcheck_thread is not None and self._active_spellcheck_job == self._analysis_job
-        completed_job = (not pending_check) and (self._spell_last_completed_job == self._analysis_job)
         self._row_tree_items = {}
 
         for label in table_order:
@@ -2229,10 +2226,8 @@ class PDFQCApp(tk.Tk):
                 location = " ".join(part for part in [label, f"POS {pos}".strip()] if part).strip()
                 if not location:
                     location = f"Row {idx + 1}"
-                context_base = description
             else:
                 location = f"Row {idx + 1}"
-                context_base = ""
             for word, suggestions, context in issue_list:
                 suggestion_text = ", ".join(suggestions) if suggestions else ""
                 entries.append((location, word, suggestion_text))
