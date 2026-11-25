@@ -6,7 +6,6 @@ and terminal workflows.
 """
 
 import sys
-import os
 import argparse
 import logging
 from pathlib import Path
@@ -64,7 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
 def check_pdf(
     pdf_path: str,
     config_path: str = "config.json",
-    tolerance: Optional[float] = None
+    tolerance: Optional[float] = None,
+    config: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
     """
     Run the core table extraction and callout matching algorithm on a PDF file.
@@ -73,11 +73,17 @@ def check_pdf(
     if not path_obj.exists():
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
 
-    config = qc_logic.load_config(config_path)
+    resolved_config = (
+        qc_logic.validate_config(config)
+        if config is not None
+        else qc_logic.load_config(config_path)
+    )
     if tolerance is not None:
-        config["tolerance"] = float(tolerance)
+        if tolerance < 0:
+            raise ValueError(f"Tolerance must be non-negative, got {tolerance}")
+        resolved_config["tolerance"] = float(tolerance)
 
-    tol = config.get("tolerance", 0.5)
+    tol = resolved_config.get("tolerance", 0.5)
 
     # 1. Extract BOM rows and sheet text
     rows, snippets, words_by_page = qc_logic.extract_rows_with_plumber(str(path_obj))
@@ -168,6 +174,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
 
+    if args.tolerance is not None and args.tolerance < 0:
+        logger.error("Tolerance must be non-negative, got %s", args.tolerance)
+        return 2
+
     try:
         results = check_pdf(args.pdf_path, config_path=args.config, tolerance=args.tolerance)
     except FileNotFoundError as err:
@@ -204,7 +214,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.output:
         try:
-            with open(args.output, "w", encoding="utf-8") as f:
+            out_path = Path(args.output)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(out_path, "w", encoding="utf-8") as f:
                 f.write(output_str)
             logger.info("Report written to %s", args.output)
         except Exception as write_err:
