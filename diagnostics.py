@@ -6,7 +6,6 @@ for CAD PDF drawing quality control.
 """
 
 import sys
-import os
 import shutil
 import subprocess
 import importlib
@@ -85,7 +84,9 @@ def check_binary(
             timeout=3
         )
         if res.returncode == 0:
-            version_str = res.stdout.splitlines()[0] if res.stdout else "available"
+            raw_output = res.stdout or res.stderr or ""
+            lines = [line.strip() for line in raw_output.splitlines() if line.strip()]
+            version_str = lines[0] if lines else "available"
     except Exception:
         pass
 
