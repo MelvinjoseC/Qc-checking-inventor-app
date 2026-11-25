@@ -1076,6 +1076,14 @@ def remove_table_snippets_from_pages(page_texts, snippets):
     return cleaned
 
 
+def _coalesce_display(*values: Any, default: Any = "") -> Any:
+    """Return the first value that is neither None nor an empty string."""
+    for val in values:
+        if val is not None and val != "":
+            return val
+    return default
+
+
 def export_to_csv(results: List[Dict[str, Any]], columns: Optional[List[str]] = None) -> str:
     import io
     import csv
@@ -1113,17 +1121,17 @@ def export_to_csv(results: List[Dict[str, Any]], columns: Optional[List[str]] = 
             elif col == "status":
                 row_data.append(r.get("status", ""))
             elif col == "quantity":
-                row_data.append(r.get("quantity_display", r.get("quantity", "") or ""))
+                row_data.append(_coalesce_display(r.get("quantity_display"), r.get("quantity")))
             elif col == "length_bom":
-                row_data.append(r.get("length_display", r.get("length", "") or ""))
+                row_data.append(_coalesce_display(r.get("length_display"), r.get("length")))
             elif col == "length_dwg":
-                row_data.append("N/A" if not r.get("length_found") else r.get("drawing_length", ""))
+                row_data.append("N/A" if not r.get("length_found") else _coalesce_display(r.get("drawing_length")))
             elif col == "length_match":
                 row_data.append("Yes" if r.get("length_match") else "No")
             elif col == "thickness_bom":
-                row_data.append(r.get("thickness_display", r.get("thickness", "") or ""))
+                row_data.append(_coalesce_display(r.get("thickness_display"), r.get("thickness")))
             elif col == "thickness_dwg":
-                row_data.append("N/A" if not r.get("thickness_found") else r.get("drawing_thickness", ""))
+                row_data.append("N/A" if not r.get("thickness_found") else _coalesce_display(r.get("drawing_thickness")))
             elif col == "thickness_match":
                 row_data.append("Yes" if r.get("thickness_match") else "No")
             elif col == "details":
@@ -1351,10 +1359,17 @@ def export_to_markdown(results: List[Dict[str, Any]], title: str = "BOM Quality 
         QCStatus.SKIPPED.value: "⏭️ SKIP",
     }
 
+    def _md_cell(value: Any) -> str:
+        return str(value).replace("\r\n", " ").replace("\n", " ").replace("|", "\\|")
+
+    safe_title = str(title).replace("\r\n", " ").replace("\n", " ").strip()
     lines = [
-        f"# {title}",
+        f"# {safe_title}",
         "",
-        f"**Total Items:** {summary.total_items} | **Passed:** {summary.passed} | **Failed:** {summary.failed} | **Pass Rate:** {summary.pass_rate}%",
+        (
+            f"**Total Items:** {summary.total_items} | **Passed:** {summary.passed} | "
+            f"**Failed:** {summary.failed} | **Pass Rate:** {summary.pass_rate}%"
+        ),
         "",
         "| POS | Description | Status | Qty | BOM Length | DWG Length | Match | BOM Thk | DWG Thk | Match | Details |",
         "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
@@ -1362,17 +1377,17 @@ def export_to_markdown(results: List[Dict[str, Any]], title: str = "BOM Quality 
 
     for r in results:
         status_raw = str(r.get("status", "FAIL"))
-        status_str = status_icon.get(status_raw, status_raw)
-        pos = str(r.get("pos", ""))
-        desc = str(r.get("description", "")).replace("|", "\\|")
-        qty = str(r.get("quantity_display", r.get("quantity", "")) or "-")
-        len_bom = str(r.get("length_display", r.get("length", "")) or "-")
-        len_dwg = str(r.get("drawing_length", "N/A") if r.get("length_found") else "N/A")
+        status_str = status_icon.get(status_raw, _md_cell(status_raw))
+        pos = _md_cell(r.get("pos", ""))
+        desc = _md_cell(r.get("description", ""))
+        qty = _md_cell(_coalesce_display(r.get("quantity_display"), r.get("quantity"), default="-"))
+        len_bom = _md_cell(_coalesce_display(r.get("length_display"), r.get("length"), default="-"))
+        len_dwg = _md_cell(r.get("drawing_length", "N/A") if r.get("length_found") else "N/A")
         len_match = "Yes" if r.get("length_match") else "No"
-        thk_bom = str(r.get("thickness_display", r.get("thickness", "")) or "-")
-        thk_dwg = str(r.get("drawing_thickness", "N/A") if r.get("thickness_found") else "N/A")
+        thk_bom = _md_cell(_coalesce_display(r.get("thickness_display"), r.get("thickness"), default="-"))
+        thk_dwg = _md_cell(r.get("drawing_thickness", "N/A") if r.get("thickness_found") else "N/A")
         thk_match = "Yes" if r.get("thickness_match") else "No"
-        details = str(r.get("details", "")).replace("|", "\\|")
+        details = _md_cell(r.get("details", ""))
 
         row = f"| {pos} | {desc} | {status_str} | {qty} | {len_bom} | {len_dwg} | {len_match} | {thk_bom} | {thk_dwg} | {thk_match} | {details} |"
         lines.append(row)
