@@ -136,7 +136,6 @@ class PDFQCApp(tk.Tk):
         self._active_spellcheck_job = 0
         self._spellcache = {}
         self._spell_last_completed_job = 0
-        pending_check = self._spellcheck_thread is not None and self._active_spellcheck_job == self._analysis_job
         self._row_tree_items = {}
         self.spell_tab = None
         self.spell_tree = None
@@ -953,7 +952,6 @@ class PDFQCApp(tk.Tk):
             self.table_notebook.forget(tab_id)
             widget.destroy()
         self.trees = {}
-        pending_check = self._spellcheck_thread is not None and self._active_spellcheck_job == self._analysis_job
         self._row_tree_items = {}
         self.spell_tab = None
         self.spell_tree = None
