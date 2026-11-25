@@ -5,7 +5,6 @@ Enables concurrent verification of multiple drawing PDFs in directories
 with aggregated metrics and consolidated reports.
 """
 
-import os
 import logging
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -34,21 +33,21 @@ class BatchProcessor:
         self.max_workers = max(1, max_workers)
 
     def discover_pdfs(self, root_dir: Union[str, Path], recursive: bool = True) -> List[Path]:
-        """Discover all PDF files in directory, sorted by name."""
+        """Discover all PDF files in directory (case-insensitive), sorted by path."""
         p = Path(root_dir)
         if not p.exists() or not p.is_dir():
             raise NotADirectoryError(f"Directory not found: {root_dir}")
 
-        pattern = "**/*.pdf" if recursive else "*.pdf"
-        return sorted([f for f in p.glob(pattern) if f.is_file()])
+        iterator = p.rglob("*") if recursive else p.iterdir()
+        return sorted([f for f in iterator if f.is_file() and f.suffix.lower() == ".pdf"])
 
     def process_single(self, pdf_path: Path) -> Dict[str, Any]:
         """Process a single PDF and return file-level summary and item results."""
         try:
             results = cli.check_pdf(
                 str(pdf_path),
-                config_path="config.json",
-                tolerance=self.tolerance
+                tolerance=self.tolerance,
+                config=self.config
             )
             summary = qc_logic.CheckSummary.from_results(results)
             return {
@@ -81,8 +80,8 @@ class BatchProcessor:
             for future in as_completed(future_to_path):
                 file_results.append(future.result())
 
-        # Sort results deterministically by filename
-        file_results.sort(key=lambda r: r["filename"])
+        # Sort results deterministically by filename and full path
+        file_results.sort(key=lambda r: (r["filename"], r["file"]))
 
         total_files = len(file_results)
         success_files = sum(1 for r in file_results if r["status"] == "success")
@@ -106,22 +105,35 @@ class BatchProcessor:
 
     def generate_consolidated_markdown(self, batch_report: Dict[str, Any]) -> str:
         """Create a markdown summary table for the entire batch."""
+        def _esc(val: Any) -> str:
+            return str(val).replace("\r\n", " ").replace("\n", " ").replace("|", "\\|")
+
         lines = [
             "# Batch PDF Drawing Quality Audit Report",
             "",
-            f"**Drawings Checked:** {batch_report['total_files']} | **BOM Items Audited:** {batch_report['total_bom_items']} | **Overall Pass Rate:** {batch_report['overall_pass_rate']}%",
+            (
+                f"**Drawings Checked:** {batch_report['total_files']} | "
+                f"**BOM Items Audited:** {batch_report['total_bom_items']} | "
+                f"**Overall Pass Rate:** {batch_report['overall_pass_rate']}%"
+            ),
             "",
             "| Drawing File | Items | Passed | Failed | Pass Rate | Status |",
             "| :--- | :--- | :--- | :--- | :--- | :--- |",
         ]
 
         for f in batch_report["files"]:
-            name = f["filename"]
+            name = _esc(f["filename"])
             if f["status"] == "error":
-                lines.append(f"| {name} | 0 | 0 | 0 | 0.0% | ❌ Error ({f['error']}) |")
+                err_msg = _esc(f["error"])
+                lines.append(f"| {name} | 0 | 0 | 0 | 0.0% | ❌ Error ({err_msg}) |")
             else:
                 s = f["summary"]
-                badge = "✅ PASS" if s.failed == 0 else "❌ FAIL"
+                if s.total_items == 0:
+                    badge = "⚠️ EMPTY"
+                elif s.failed == 0:
+                    badge = "✅ PASS"
+                else:
+                    badge = "❌ FAIL"
                 lines.append(f"| {name} | {s.total_items} | {s.passed} | {s.failed} | {s.pass_rate}% | {badge} |")
 
         lines.append("")
