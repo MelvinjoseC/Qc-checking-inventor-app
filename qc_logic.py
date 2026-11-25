@@ -567,13 +567,16 @@ def is_within_tolerance(
     Check if actual value is within tolerance of expected value.
     Supports absolute tolerance (e.g. ±0.5 mm) or percentage tolerance (e.g. ±2%).
     """
+    if tolerance < 0:
+        raise ValueError(f"Tolerance must be non-negative, got {tolerance}")
+    eps = 1e-9
     mode_str = mode.value if isinstance(mode, ToleranceMode) else str(mode).lower()
     if mode_str == ToleranceMode.PERCENTAGE.value or mode_str == "percentage":
         if expected == 0.0:
-            return abs(actual) <= tolerance
+            return abs(actual) <= tolerance + eps
         pct_diff = abs(actual - expected) / abs(expected) * 100.0
-        return pct_diff <= tolerance
-    return abs(actual - expected) <= tolerance
+        return pct_diff <= tolerance + eps
+    return abs(actual - expected) <= tolerance + eps
 
 
 def generate_pos_callout_variants(pos: str) -> List[List[str]]:
