@@ -147,9 +147,10 @@ print(md_report)
 
 ## Testing & Quality Assurance
 
-Run the comprehensive unit test suite:
+Run the comprehensive unit test suite and static checks:
 ```bash
-python -m unittest discover -v -p "test_*.py"
+pytest --cov=. --cov-report=term-missing
+mypy qc_logic.py cli.py batch_processor.py diagnostics.py --ignore-missing-imports
 ```
 
 The test suite covers:
@@ -181,5 +182,5 @@ The test suite covers:
 1. Create a feature branch: `git checkout -b feature/your-feature-name`
 2. Implement your changes adhering to PEP 8 standards.
 3. Add corresponding unit tests in `test_*.py`.
-4. Ensure all unit tests pass: `python -m unittest discover -p "test_*.py"`.
+4. Ensure all unit tests and type checks pass: `pytest` and `mypy qc_logic.py cli.py batch_processor.py diagnostics.py`.
 5. Submit a Pull Request targeting the `main` branch.
