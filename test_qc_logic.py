@@ -505,6 +505,51 @@ class TestQCLogic(unittest.TestCase):
             if os.path.exists(tmp_log):
                 os.remove(tmp_log)
 
+    def test_is_within_tolerance_precision_and_validation(self):
+        # IEEE-754 boundary: 10.3 - 10.0 == 0.3000000000000007
+        self.assertTrue(qc_logic.is_within_tolerance(10.3, 10.0, tolerance=0.3))
+        self.assertTrue(qc_logic.is_within_tolerance(105.0, 100.0, tolerance=5.0, mode="percentage"))
+        with self.assertRaises(ValueError):
+            qc_logic.is_within_tolerance(10.0, 10.0, tolerance=-0.1)
+
+    def test_export_to_csv_none_display_fallback(self):
+        results = [
+            {
+                "pos": "1",
+                "description": "Plate",
+                "status": "PASS",
+                "quantity": 4,
+                "quantity_display": None,
+                "length": 250.0,
+                "length_display": None,
+                "length_found": True,
+                "drawing_length": 250.0,
+                "length_match": True,
+                "thickness": 12.0,
+                "thickness_display": None,
+                "thickness_found": True,
+                "drawing_thickness": 12.0,
+                "thickness_match": True,
+                "details": "Verified",
+            }
+        ]
+        csv_out = qc_logic.export_to_csv(results)
+        self.assertIn(",4,250.0,250.0,Yes,12.0,12.0,Yes,", csv_out)
+
+    def test_export_to_markdown_escapes_newlines(self):
+        results = [
+            {
+                "pos": "1\nA",
+                "description": "Line1\nLine2 | Pipe",
+                "status": "PASS",
+                "details": "Note1\r\nNote2",
+            }
+        ]
+        md_out = qc_logic.export_to_markdown(results, title="Report\nTitle")
+        self.assertIn("# Report Title", md_out)
+        self.assertIn("| 1 A | Line1 Line2 \\| Pipe |", md_out)
+        self.assertIn("| Note1 Note2 |", md_out)
+
 
 if __name__ == "__main__":
     unittest.main()
