@@ -90,6 +90,53 @@ class TestBatchProcessor(unittest.TestCase):
         self.assertIn("assembly1.pdf", md)
         self.assertIn("✅ PASS", md)
 
+    def test_discover_pdfs_case_insensitive(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            (base / "upper.PDF").touch()
+            (base / "mixed.Pdf").touch()
+            discovered = self.processor.discover_pdfs(base, recursive=False)
+            names = {p.name for p in discovered}
+            self.assertEqual(names, {"upper.PDF", "mixed.Pdf"})
+
+    @patch("cli.check_pdf")
+    def test_process_single_passes_instance_config(self, mock_check_pdf):
+        mock_check_pdf.return_value = []
+        custom_cfg = {"tolerance": 1.25, "default_dpi": 200}
+        proc = BatchProcessor(config=custom_cfg, tolerance=0.75)
+        proc.process_single(Path("sample.pdf"))
+        mock_check_pdf.assert_called_once_with(
+            "sample.pdf",
+            tolerance=0.75,
+            config=custom_cfg,
+        )
+
+    def test_generate_consolidated_markdown_empty_and_escaped(self):
+        report_data = {
+            "total_files": 2,
+            "total_bom_items": 0,
+            "overall_pass_rate": 0.0,
+            "files": [
+                {
+                    "filename": "empty_sheet.pdf",
+                    "status": "success",
+                    "summary": qc_logic.CheckSummary(total_items=0, passed=0, failed=0, pass_rate=0.0),
+                    "error": None
+                },
+                {
+                    "filename": "bad|name.pdf",
+                    "status": "error",
+                    "summary": qc_logic.CheckSummary(),
+                    "error": "line1\nline2 | pipe"
+                }
+            ]
+        }
+        md = self.processor.generate_consolidated_markdown(report_data)
+        self.assertIn("⚠️ EMPTY", md)
+        self.assertNotIn("✅ PASS", md)
+        self.assertIn("bad\\|name.pdf", md)
+        self.assertIn("line1 line2 \\| pipe", md)
+
 
 if __name__ == "__main__":
     unittest.main()
